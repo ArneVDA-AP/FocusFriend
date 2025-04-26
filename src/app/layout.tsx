@@ -1,17 +1,16 @@
 import type { Metadata } from 'next';
-import { Geist, Geist_Mono } from 'next/font/google';
+import { VT323 } from 'next/font/google'; // Import VT323
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster";
 
-const geistSans = Geist({
-  variable: '--font-geist-sans',
+// Configure VT323 font
+const vt323 = VT323({
+  weight: '400', // VT323 only supports 400 weight
   subsets: ['latin'],
+  variable: '--font-vt323', // Define CSS variable
+  display: 'swap', // Ensure text is visible during font load
 });
 
-const geistMono = Geist_Mono({
-  variable: '--font-geist-mono',
-  subsets: ['latin'],
-});
 
 export const metadata: Metadata = {
   title: 'StudyQuest',
@@ -25,7 +24,8 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+      {/* Apply the font variable to the body */}
+      <body className={`${vt323.variable} font-sans antialiased`}>
         {children}
         <Toaster />
       </body>

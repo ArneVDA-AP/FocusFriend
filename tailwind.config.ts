@@ -1,4 +1,5 @@
 import type { Config } from "tailwindcss";
+import { fontFamily } from "tailwindcss/defaultTheme"; // Import defaultTheme
 
 export default {
     darkMode: ["class"],
@@ -9,6 +10,10 @@ export default {
   ],
   theme: {
   	extend: {
+      fontFamily: {
+         // Add VT323 to the sans-serif stack, making it the default
+         sans: ["var(--font-vt323)", ...fontFamily.sans],
+       },
   		colors: {
   			background: 'hsl(var(--background))',
   			foreground: 'hsl(var(--foreground))',
@@ -62,9 +67,12 @@ export default {
   			}
   		},
   		borderRadius: {
-  			lg: 'var(--radius)',
-  			md: 'calc(var(--radius) - 2px)',
-  			sm: 'calc(var(--radius) - 4px)'
+             // Use pixel values or smaller rem for sharper edges
+             lg: 'var(--radius)', // 0.25rem from globals.css
+             md: 'calc(var(--radius) - 1px)', // approx 0.18rem
+             sm: 'calc(var(--radius) - 2px)', // approx 0.125rem
+             xs: '1px', // Add extra small for things like checkbox
+             full: '9999px', // Keep full for specific cases like progress indicators if needed
   		},
   		keyframes: {
   			'accordion-down': {

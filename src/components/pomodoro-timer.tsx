@@ -1,18 +1,13 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Play, Pause, RotateCw, Coffee, BookOpen } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { cn } from '@/lib/utils';
+
 
 type TimerMode = 'work' | 'shortBreak' | 'longBreak';
 
@@ -20,6 +15,7 @@ const WORK_DURATION = 25 * 60; // 25 minutes in seconds
 const SHORT_BREAK_DURATION = 5 * 60; // 5 minutes
 const LONG_BREAK_DURATION = 15 * 60; // 15 minutes
 const SESSIONS_BEFORE_LONG_BREAK = 4;
+const LOCAL_STORAGE_KEY_POMODORO = 'studyQuestPomodoroSessions';
 
 export default function PomodoroTimer() {
   const [mode, setMode] = useState<TimerMode>('work');
@@ -28,6 +24,22 @@ export default function PomodoroTimer() {
   const [sessionsCompleted, setSessionsCompleted] = useState<number>(0);
   const { toast } = useToast();
   const [timerInterval, setTimerInterval] = useState<NodeJS.Timeout | null>(null);
+
+   // Load sessions from localStorage
+   useEffect(() => {
+       const storedSessions = localStorage.getItem(LOCAL_STORAGE_KEY_POMODORO);
+       if (storedSessions) {
+           setSessionsCompleted(parseInt(storedSessions, 10));
+       }
+   }, []);
+
+   // Save sessions to localStorage and dispatch update event
+   useEffect(() => {
+       localStorage.setItem(LOCAL_STORAGE_KEY_POMODORO, sessionsCompleted.toString());
+       // Dispatch event for overview component
+        window.dispatchEvent(new CustomEvent('pomodoroUpdate'));
+   }, [sessionsCompleted]);
+
 
    const getDuration = useCallback((currentMode: TimerMode) => {
     switch (currentMode) {
@@ -50,11 +62,12 @@ export default function PomodoroTimer() {
     setMode(nextMode);
     setTimeLeft(getDuration(nextMode));
 
-    // Show notification for mode switch
+    const modeText = nextMode === 'work' ? 'Work' : nextMode === 'shortBreak' ? 'Short Break' : 'Long Break';
     toast({
-      title: `Switched to ${nextMode === 'work' ? 'Work' : nextMode === 'shortBreak' ? 'Short Break' : 'Long Break'} Mode`,
-      description: `Time for ${nextMode === 'work' ? 'focus!' : 'a break!'}`,
+      title: `Mode: ${modeText}`,
+      description: `Time for ${nextMode === 'work' ? 'focus!' : 'a break!'} (${formatTime(getDuration(nextMode))})`,
       action: nextMode === 'work' ? <BookOpen className="text-primary" /> : <Coffee className="text-secondary-foreground" />,
+      className: "border-secondary text-foreground",
     });
 
   }, [getDuration, timerInterval, toast]);
@@ -74,16 +87,16 @@ export default function PomodoroTimer() {
       setTimerInterval(null);
 
       // Play sound or show notification
-      // For now, using toast
       toast({
         title: mode === 'work' ? 'Work Session Complete!' : 'Break Over!',
-        description: mode === 'work' ? 'Time for a break!' : 'Time to get back to work!',
+        description: mode === 'work' ? 'Well done! Time for a break.' : 'Back to the grind!',
         variant: 'default',
+        className: "border-accent text-foreground", // Use accent for completion
       });
 
       if (mode === 'work') {
         const newSessionsCompleted = sessionsCompleted + 1;
-        setSessionsCompleted(newSessionsCompleted);
+        setSessionsCompleted(newSessionsCompleted); // Update state and trigger save
         if (newSessionsCompleted % SESSIONS_BEFORE_LONG_BREAK === 0) {
           switchMode('longBreak');
         } else {
@@ -94,12 +107,11 @@ export default function PomodoroTimer() {
         switchMode('work');
       }
     } else {
-       // Clear interval if timer is not active or timeLeft is 0
         if (timerInterval) clearInterval(timerInterval);
         setTimerInterval(null);
     }
      // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isActive, timeLeft]); // Dependency array: only re-run effect if isActive or timeLeft changes
+  }, [isActive, timeLeft]); // Dependency array
 
 
    // Cleanup interval on component unmount
@@ -114,6 +126,11 @@ export default function PomodoroTimer() {
 
   const toggleTimer = () => {
     setIsActive(!isActive);
+     if (!isActive) {
+        toast({ title: "Timer Started", description: `Focus for ${formatTime(timeLeft)}!` , className: "border-primary text-foreground"});
+     } else {
+        toast({ title: "Timer Paused", className: "border-secondary text-foreground" });
+     }
   };
 
   const resetTimer = () => {
@@ -121,7 +138,7 @@ export default function PomodoroTimer() {
      if (timerInterval) clearInterval(timerInterval);
      setTimerInterval(null);
     setTimeLeft(getDuration(mode));
-    toast({ title: "Timer Reset", description: `Timer reset to ${formatTime(getDuration(mode))}.` });
+    toast({ title: "Timer Reset", description: `${mode === 'work' ? 'Work' : mode === 'shortBreak' ? 'Short Break' : 'Long Break'} timer reset to ${formatTime(getDuration(mode))}.`, className: "border-secondary text-foreground" });
   };
 
   const formatTime = (seconds: number) => {
@@ -131,43 +148,50 @@ export default function PomodoroTimer() {
   };
 
   const progress = ((getDuration(mode) - timeLeft) / getDuration(mode)) * 100;
+  const modeLabel = mode === 'work' ? 'Focus Session' : mode === 'shortBreak' ? 'Short Break' : 'Long Break';
 
   return (
-    <Card className="shadow-md max-w-md mx-auto">
-      <CardHeader>
-        <CardTitle className="text-center text-2xl">Pomodoro Timer</CardTitle>
+    <Card className="shadow-md max-w-md mx-auto border border-border bg-card/80">
+      <CardHeader className="pb-4">
+        <CardTitle className="text-center text-xl font-semibold">Pomodoro Timer</CardTitle>
+        <CardDescription className="text-center text-xs">Stay focused and take regular breaks.</CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col items-center space-y-6">
-        <div className="flex gap-2 mb-4">
+        {/* Mode Buttons */}
+        <div className="flex gap-2 mb-2">
            <Button
             variant={mode === 'work' ? 'default' : 'outline'}
             onClick={() => switchMode('work')}
             size="sm"
+            className={cn(mode === 'work' ? 'bg-primary text-primary-foreground' : 'bg-muted/30 border-muted/50 hover:bg-muted/50')}
           >
-            Work
+            <BookOpen className="mr-1.5 h-4 w-4"/> Work
           </Button>
            <Button
             variant={mode === 'shortBreak' ? 'default' : 'outline'}
             onClick={() => switchMode('shortBreak')}
             size="sm"
+             className={cn(mode === 'shortBreak' ? 'bg-primary text-primary-foreground' : 'bg-muted/30 border-muted/50 hover:bg-muted/50')}
           >
-            Short Break
+           <Coffee className="mr-1.5 h-4 w-4"/> Short Break
           </Button>
           <Button
             variant={mode === 'longBreak' ? 'default' : 'outline'}
             onClick={() => switchMode('longBreak')}
             size="sm"
+             className={cn(mode === 'longBreak' ? 'bg-primary text-primary-foreground' : 'bg-muted/30 border-muted/50 hover:bg-muted/50')}
           >
-            Long Break
+            <Coffee className="mr-1.5 h-4 w-4"/> Long Break
           </Button>
         </div>
 
-        <div className="relative w-48 h-48">
+        {/* Timer Circle */}
+        <div className="relative w-40 h-40 sm:w-48 sm:h-48">
            <svg className="absolute inset-0 w-full h-full" viewBox="0 0 100 100">
-              {/* Background circle */}
+            {/* Background circle */}
             <circle
-              className="text-muted stroke-current"
-              strokeWidth="4"
+              className="text-muted/40 stroke-current"
+              strokeWidth="5"
               cx="50"
               cy="50"
               r="45"
@@ -175,8 +199,8 @@ export default function PomodoroTimer() {
             ></circle>
              {/* Progress circle */}
             <circle
-              className="text-primary stroke-current"
-              strokeWidth="4"
+              className="text-accent stroke-current" // Accent color for progress
+              strokeWidth="5"
               cx="50"
               cy="50"
               r="45"
@@ -184,29 +208,46 @@ export default function PomodoroTimer() {
               strokeDasharray={`${2 * Math.PI * 45}`}
               strokeDashoffset={`${(2 * Math.PI * 45) * (1 - progress / 100)}`}
               transform="rotate(-90 50 50)" // Start from the top
-              style={{ transition: 'stroke-dashoffset 0.3s ease-out' }}
+              style={{ transition: 'stroke-dashoffset 0.3s linear' }} // Linear transition
+              strokeLinecap="round" // Rounded line end
             ></circle>
           </svg>
            <div className="absolute inset-0 flex flex-col items-center justify-center">
-            <span className="text-4xl font-bold tabular-nums">{formatTime(timeLeft)}</span>
-             <span className="text-sm text-muted-foreground capitalize">
-                {mode === 'work' ? 'Work Session' : mode === 'shortBreak' ? 'Short Break' : 'Long Break'}
+            <span className="text-4xl sm:text-5xl font-bold tabular-nums text-foreground">{formatTime(timeLeft)}</span>
+             <span className="text-xs text-muted-foreground mt-1 capitalize">
+                {modeLabel}
              </span>
           </div>
         </div>
 
+         {/* Control Buttons */}
         <div className="flex gap-4">
-          <Button onClick={toggleTimer} size="lg" aria-label={isActive ? 'Pause Timer' : 'Start Timer'}>
+          <Button
+             onClick={toggleTimer}
+             size="lg"
+             aria-label={isActive ? 'Pause Timer' : 'Start Timer'}
+             className={cn(
+                "w-28",
+                isActive ? 'bg-destructive hover:bg-destructive/90' : 'bg-primary hover:bg-primary/90'
+             )}
+             >
             {isActive ? <Pause className="mr-2 h-5 w-5" /> : <Play className="mr-2 h-5 w-5" />}
             {isActive ? 'Pause' : 'Start'}
           </Button>
-          <Button onClick={resetTimer} variant="outline" size="lg" aria-label="Reset Timer">
+          <Button
+             onClick={resetTimer}
+             variant="outline"
+             size="icon"
+             aria-label="Reset Timer"
+             className="border-muted/50 hover:bg-muted/50"
+             >
             <RotateCw className="h-5 w-5" />
           </Button>
         </div>
 
+         {/* Session Counter */}
         <p className="text-sm text-muted-foreground">
-          Sessions completed: {sessionsCompleted}
+          Completed Sessions: <span className="font-semibold text-foreground">{sessionsCompleted}</span>
         </p>
       </CardContent>
 
