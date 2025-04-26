@@ -25,7 +25,6 @@ export default function PomodoroTimer() {
   const { toast } = useToast();
   const [timerInterval, setTimerInterval] = useState<NodeJS.Timeout | null>(null);
 
-   // Load sessions from localStorage
    useEffect(() => {
        const storedSessions = localStorage.getItem(LOCAL_STORAGE_KEY_POMODORO);
        if (storedSessions) {
@@ -33,10 +32,8 @@ export default function PomodoroTimer() {
        }
    }, []);
 
-   // Save sessions to localStorage and dispatch update event
    useEffect(() => {
        localStorage.setItem(LOCAL_STORAGE_KEY_POMODORO, sessionsCompleted.toString());
-       // Dispatch event for overview component
         window.dispatchEvent(new CustomEvent('pomodoroUpdate'));
    }, [sessionsCompleted]);
 
@@ -55,7 +52,7 @@ export default function PomodoroTimer() {
   }, []);
 
   const switchMode = useCallback((nextMode: TimerMode) => {
-    setIsActive(false); // Stop timer on mode switch
+    setIsActive(false);
     if (timerInterval) clearInterval(timerInterval);
     setTimerInterval(null);
 
@@ -63,12 +60,12 @@ export default function PomodoroTimer() {
     setTimeLeft(getDuration(nextMode));
 
     const modeText = nextMode === 'work' ? 'Work' : nextMode === 'shortBreak' ? 'Short Break' : 'Long Break';
-    toast({
+     setTimeout(() => toast({
       title: `Mode: ${modeText}`,
       description: `Time for ${nextMode === 'work' ? 'focus!' : 'a break!'} (${formatTime(getDuration(nextMode))})`,
-      action: nextMode === 'work' ? <BookOpen className="text-primary" /> : <Coffee className="text-secondary-foreground" />,
-      className: "border-secondary text-foreground",
-    });
+      action: nextMode === 'work' ? <BookOpen className="text-primary" strokeWidth={1.5}/> : <Coffee className="text-secondary-foreground" strokeWidth={1.5}/>,
+      className: "osrs-box border-secondary text-foreground", // OSRS style toast
+    }), 0);
 
   }, [getDuration, timerInterval, toast]);
 
@@ -79,31 +76,29 @@ export default function PomodoroTimer() {
         setTimeLeft((prevTime) => prevTime - 1);
       }, 1000);
       setTimerInterval(interval);
-      return () => clearInterval(interval); // Clear interval on cleanup
+      return () => clearInterval(interval);
     } else if (isActive && timeLeft === 0) {
-      // Timer finished
       setIsActive(false);
       if (timerInterval) clearInterval(timerInterval);
       setTimerInterval(null);
 
-      // Play sound or show notification
-      toast({
+       setTimeout(() => toast({
         title: mode === 'work' ? 'Work Session Complete!' : 'Break Over!',
         description: mode === 'work' ? 'Well done! Time for a break.' : 'Back to the grind!',
         variant: 'default',
-        className: "border-accent text-foreground", // Use accent for completion
-      });
+        className: "osrs-box border-accent text-foreground", // OSRS style toast
+      }), 0);
+
 
       if (mode === 'work') {
         const newSessionsCompleted = sessionsCompleted + 1;
-        setSessionsCompleted(newSessionsCompleted); // Update state and trigger save
+        setSessionsCompleted(newSessionsCompleted);
         if (newSessionsCompleted % SESSIONS_BEFORE_LONG_BREAK === 0) {
           switchMode('longBreak');
         } else {
           switchMode('shortBreak');
         }
       } else {
-        // If break finished, switch back to work
         switchMode('work');
       }
     } else {
@@ -111,10 +106,9 @@ export default function PomodoroTimer() {
         setTimerInterval(null);
     }
      // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isActive, timeLeft]); // Dependency array
+  }, [isActive, timeLeft]); // switchMode is memoized, toast is stable
 
 
-   // Cleanup interval on component unmount
   useEffect(() => {
     return () => {
       if (timerInterval) {
@@ -125,12 +119,15 @@ export default function PomodoroTimer() {
 
 
   const toggleTimer = () => {
-    setIsActive(!isActive);
-     if (!isActive) {
-        toast({ title: "Timer Started", description: `Focus for ${formatTime(timeLeft)}!` , className: "border-primary text-foreground"});
-     } else {
-        toast({ title: "Timer Paused", className: "border-secondary text-foreground" });
-     }
+     const wasActive = isActive;
+     setIsActive(!isActive);
+     setTimeout(() => {
+         if (!wasActive) {
+            toast({ title: "Timer Started", description: `Focus for ${formatTime(timeLeft)}!` , className: "osrs-box border-primary text-foreground"});
+         } else {
+            toast({ title: "Timer Paused", className: "osrs-box border-secondary text-foreground" });
+         }
+     }, 0);
   };
 
   const resetTimer = () => {
@@ -138,7 +135,7 @@ export default function PomodoroTimer() {
      if (timerInterval) clearInterval(timerInterval);
      setTimerInterval(null);
     setTimeLeft(getDuration(mode));
-    toast({ title: "Timer Reset", description: `${mode === 'work' ? 'Work' : mode === 'shortBreak' ? 'Short Break' : 'Long Break'} timer reset to ${formatTime(getDuration(mode))}.`, className: "border-secondary text-foreground" });
+     setTimeout(() => toast({ title: "Timer Reset", description: `${mode === 'work' ? 'Work' : mode === 'shortBreak' ? 'Short Break' : 'Long Break'} timer reset to ${formatTime(getDuration(mode))}.`, className: "osrs-box border-secondary text-foreground" }), 0);
   };
 
   const formatTime = (seconds: number) => {
@@ -151,69 +148,85 @@ export default function PomodoroTimer() {
   const modeLabel = mode === 'work' ? 'Focus Session' : mode === 'shortBreak' ? 'Short Break' : 'Long Break';
 
   return (
-    <Card className="shadow-md max-w-md mx-auto border border-border bg-card/80">
-      <CardHeader className="pb-4">
-        <CardTitle className="text-center text-xl font-semibold">Pomodoro Timer</CardTitle>
-        <CardDescription className="text-center text-xs">Stay focused and take regular breaks.</CardDescription>
+    <Card className="osrs-box max-w-md mx-auto">
+      <CardHeader className="pb-3 text-center">
+        <CardTitle className="text-lg font-semibold">Pomodoro Timer</CardTitle>
+        <CardDescription className="text-xs">Stay focused and take regular breaks.</CardDescription>
       </CardHeader>
-      <CardContent className="flex flex-col items-center space-y-6">
+      <CardContent className="flex flex-col items-center space-y-5 pt-2 pb-4">
         {/* Mode Buttons */}
-        <div className="flex gap-2 mb-2">
+        <div className="flex gap-2">
            <Button
             variant={mode === 'work' ? 'default' : 'outline'}
             onClick={() => switchMode('work')}
             size="sm"
-            className={cn(mode === 'work' ? 'bg-primary text-primary-foreground' : 'bg-muted/30 border-muted/50 hover:bg-muted/50')}
+            className={cn(mode === 'work' ? '' : 'bg-transparent border-input hover:bg-muted/50')}
           >
-            <BookOpen className="mr-1.5 h-4 w-4"/> Work
+            <BookOpen className="mr-1.5 h-4 w-4" strokeWidth={1.5}/> Work
           </Button>
            <Button
             variant={mode === 'shortBreak' ? 'default' : 'outline'}
             onClick={() => switchMode('shortBreak')}
             size="sm"
-             className={cn(mode === 'shortBreak' ? 'bg-primary text-primary-foreground' : 'bg-muted/30 border-muted/50 hover:bg-muted/50')}
+             className={cn(mode === 'shortBreak' ? '' : 'bg-transparent border-input hover:bg-muted/50')}
           >
-           <Coffee className="mr-1.5 h-4 w-4"/> Short Break
+           <Coffee className="mr-1.5 h-4 w-4" strokeWidth={1.5}/> Short Break
           </Button>
           <Button
             variant={mode === 'longBreak' ? 'default' : 'outline'}
             onClick={() => switchMode('longBreak')}
             size="sm"
-             className={cn(mode === 'longBreak' ? 'bg-primary text-primary-foreground' : 'bg-muted/30 border-muted/50 hover:bg-muted/50')}
+             className={cn(mode === 'longBreak' ? '' : 'bg-transparent border-input hover:bg-muted/50')}
           >
-            <Coffee className="mr-1.5 h-4 w-4"/> Long Break
+            <Coffee className="mr-1.5 h-4 w-4" strokeWidth={1.5}/> Long Break
           </Button>
         </div>
 
         {/* Timer Circle */}
-        <div className="relative w-40 h-40 sm:w-48 sm:h-48">
+        <div className="relative w-40 h-40 sm:w-44 sm:h-44">
            <svg className="absolute inset-0 w-full h-full" viewBox="0 0 100 100">
-            {/* Background circle */}
+            {/* Background circle - OSRS style */}
             <circle
-              className="text-muted/40 stroke-current"
-              strokeWidth="5"
+              className="text-black/30 stroke-current"
+              strokeWidth="6"
               cx="50"
               cy="50"
               r="45"
+              fill="hsl(var(--card))" // Use card background
+            />
+             <circle // Inner bevel shadow
+              className="text-black/20 stroke-current"
+              strokeWidth="1"
+              cx="50"
+              cy="50"
+              r="42"
               fill="transparent"
-            ></circle>
+            />
+             <circle // Inner highlight
+              className="text-white/10 stroke-current"
+              strokeWidth="1"
+              cx="50"
+              cy="50"
+              r="48"
+              fill="transparent"
+            />
              {/* Progress circle */}
             <circle
-              className="text-accent stroke-current" // Accent color for progress
-              strokeWidth="5"
+              className="text-accent stroke-current"
+              strokeWidth="4" // Slightly thinner progress bar
               cx="50"
               cy="50"
               r="45"
               fill="transparent"
               strokeDasharray={`${2 * Math.PI * 45}`}
               strokeDashoffset={`${(2 * Math.PI * 45) * (1 - progress / 100)}`}
-              transform="rotate(-90 50 50)" // Start from the top
-              style={{ transition: 'stroke-dashoffset 0.3s linear' }} // Linear transition
-              strokeLinecap="round" // Rounded line end
-            ></circle>
+              transform="rotate(-90 50 50)"
+              style={{ transition: 'stroke-dashoffset 0.3s linear' }}
+              strokeLinecap="butt" // Sharp ends
+            />
           </svg>
            <div className="absolute inset-0 flex flex-col items-center justify-center">
-            <span className="text-4xl sm:text-5xl font-bold tabular-nums text-foreground">{formatTime(timeLeft)}</span>
+            <span className="text-4xl sm:text-4xl font-bold tabular-nums text-foreground tracking-tighter">{formatTime(timeLeft)}</span>
              <span className="text-xs text-muted-foreground mt-1 capitalize">
                 {modeLabel}
              </span>
@@ -221,17 +234,17 @@ export default function PomodoroTimer() {
         </div>
 
          {/* Control Buttons */}
-        <div className="flex gap-4">
+        <div className="flex gap-3">
           <Button
              onClick={toggleTimer}
-             size="lg"
+             size="default" // Standard size
              aria-label={isActive ? 'Pause Timer' : 'Start Timer'}
              className={cn(
-                "w-28",
+                "w-24 text-sm", // Slightly smaller text
                 isActive ? 'bg-destructive hover:bg-destructive/90' : 'bg-primary hover:bg-primary/90'
              )}
              >
-            {isActive ? <Pause className="mr-2 h-5 w-5" /> : <Play className="mr-2 h-5 w-5" />}
+            {isActive ? <Pause className="mr-1.5 h-4 w-4" strokeWidth={2} /> : <Play className="mr-1.5 h-4 w-4" strokeWidth={2}/>}
             {isActive ? 'Pause' : 'Start'}
           </Button>
           <Button
@@ -239,14 +252,14 @@ export default function PomodoroTimer() {
              variant="outline"
              size="icon"
              aria-label="Reset Timer"
-             className="border-muted/50 hover:bg-muted/50"
+             className="border-input hover:bg-muted/50"
              >
-            <RotateCw className="h-5 w-5" />
+            <RotateCw className="h-4 w-4" strokeWidth={2} />
           </Button>
         </div>
 
          {/* Session Counter */}
-        <p className="text-sm text-muted-foreground">
+        <p className="text-xs text-muted-foreground pt-1">
           Completed Sessions: <span className="font-semibold text-foreground">{sessionsCompleted}</span>
         </p>
       </CardContent>

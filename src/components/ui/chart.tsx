@@ -52,14 +52,20 @@ const ChartContainer = React.forwardRef<
         data-chart={chartId}
         ref={ref}
         className={cn(
-          "flex aspect-video justify-center text-xs [&_.recharts-cartesian-axis-tick_text]:fill-muted-foreground [&_.recharts-cartesian-grid_line[stroke='#ccc']]:stroke-border/50 [&_.recharts-curve.recharts-tooltip-cursor]:stroke-border [&_.recharts-dot[stroke='#fff']]:stroke-transparent [&_.recharts-layer]:outline-none [&_.recharts-polar-grid_[stroke='#ccc']]:stroke-border [&_.recharts-radial-bar-background-sector]:fill-muted [&_.recharts-rectangle.recharts-tooltip-cursor]:fill-muted [&_.recharts-reference-line_[stroke='#ccc']]:stroke-border [&_.recharts-sector[stroke='#fff']]:stroke-transparent [&_.recharts-sector]:outline-none [&_.recharts-surface]:outline-none",
+          // Base chart styling adjustments for OSRS theme
+           "flex aspect-video justify-center text-[10px] [&_.recharts-cartesian-axis-tick_text]:fill-muted-foreground [&_.recharts-cartesian-grid_line[stroke='#ccc']]:stroke-border/30 [&_.recharts-curve.recharts-tooltip-cursor]:stroke-border [&_.recharts-dot[stroke='#fff']]:stroke-transparent [&_.recharts-layer]:outline-none [&_.recharts-polar-grid_[stroke='#ccc']]:stroke-border/50 [&_.recharts-radial-bar-background-sector]:fill-muted/50 [&_.recharts-rectangle.recharts-tooltip-cursor]:fill-muted/40 [&_.recharts-reference-line_[stroke='#ccc']]:stroke-border [&_.recharts-sector[stroke='#fff']]:stroke-transparent [&_.recharts-sector]:outline-none [&_.recharts-surface]:outline-none",
           className
         )}
         {...props}
       >
         <ChartStyle id={chartId} config={config} />
-        <RechartsPrimitive.ResponsiveContainer>
-          {children}
+         {/* Disable animations for a more static OSRS feel */}
+        <RechartsPrimitive.ResponsiveContainer debounce={1} >
+          {React.cloneElement(children as React.ReactElement, {
+            // Pass isAnimationActive={false} to direct child chart components (e.g., BarChart, LineChart)
+            isAnimationActive: false,
+             animationDuration: 0, // Explicitly set duration to 0
+          })}
         </RechartsPrimitive.ResponsiveContainer>
       </div>
     </ChartContext.Provider>
@@ -179,22 +185,24 @@ const ChartTooltipContent = React.forwardRef<
       <div
         ref={ref}
         className={cn(
-          "grid min-w-[8rem] items-start gap-1.5 rounded-lg border border-border/50 bg-background px-2.5 py-1.5 text-xs shadow-xl",
+           // OSRS Tooltip Style
+           "grid min-w-[7rem] items-start gap-1 rounded-sm border-2 border-black bg-popover p-1.5 text-[11px] shadow-[inset_2px_2px_0_0_rgba(255,255,255,0.1),inset_-2px_-2px_0_0_rgba(0,0,0,0.2)]",
           className
         )}
       >
         {!nestLabel ? tooltipLabel : null}
-        <div className="grid gap-1.5">
+        <div className="grid gap-1">
           {payload.map((item, index) => {
             const key = `${nameKey || item.name || item.dataKey || "value"}`
             const itemConfig = getPayloadConfigFromPayload(config, item, key)
-            const indicatorColor = color || item.payload.fill || item.color
+             // Use the item's actual color or the configured color
+            const indicatorColor = color || item.payload?.fill || item?.color || config[key]?.color
 
             return (
               <div
                 key={item.dataKey}
                 className={cn(
-                  "flex w-full flex-wrap items-stretch gap-2 [&>svg]:h-2.5 [&>svg]:w-2.5 [&>svg]:text-muted-foreground",
+                  "flex w-full flex-wrap items-stretch gap-1.5 [&>svg]:h-2.5 [&>svg]:w-2.5 [&>svg]:text-muted-foreground",
                   indicator === "dot" && "items-center"
                 )}
               >
@@ -208,11 +216,11 @@ const ChartTooltipContent = React.forwardRef<
                       !hideIndicator && (
                         <div
                           className={cn(
-                            "shrink-0 rounded-[2px] border-[--color-border] bg-[--color-bg]",
+                            "shrink-0 rounded-[1px] border-[--color-border] bg-[--color-bg]", // Sharper indicator
                             {
-                              "h-2.5 w-2.5": indicator === "dot",
-                              "w-1": indicator === "line",
-                              "w-0 border-[1.5px] border-dashed bg-transparent":
+                              "h-2 w-2": indicator === "dot", // Smaller dot
+                              "w-0.5": indicator === "line", // Thinner line
+                              "w-0 border-[1px] border-dashed bg-transparent":
                                 indicator === "dashed",
                               "my-0.5": nestLabel && indicator === "dashed",
                             }
@@ -232,15 +240,16 @@ const ChartTooltipContent = React.forwardRef<
                         nestLabel ? "items-end" : "items-center"
                       )}
                     >
-                      <div className="grid gap-1.5">
+                      <div className="grid gap-0.5">
                         {nestLabel ? tooltipLabel : null}
                         <span className="text-muted-foreground">
                           {itemConfig?.label || item.name}
                         </span>
                       </div>
-                      {item.value && (
-                        <span className="font-mono font-medium tabular-nums text-foreground">
-                          {item.value.toLocaleString()}
+                      {item.value !== undefined && item.value !== null && (
+                         <span className="font-medium tabular-nums text-foreground">
+                           {/* Format number to have max 1 decimal place if needed */}
+                           {Number(item.value).toLocaleString(undefined, { maximumFractionDigits: 1 })}
                         </span>
                       )}
                     </div>
@@ -254,7 +263,8 @@ const ChartTooltipContent = React.forwardRef<
     )
   }
 )
-ChartTooltipContent.displayName = "ChartTooltip"
+ChartTooltipContent.displayName = "ChartTooltipContent"
+
 
 const ChartLegend = RechartsPrimitive.Legend
 
@@ -280,8 +290,8 @@ const ChartLegendContent = React.forwardRef<
       <div
         ref={ref}
         className={cn(
-          "flex items-center justify-center gap-4",
-          verticalAlign === "top" ? "pb-3" : "pt-3",
+          "flex items-center justify-center gap-3 text-xs", // Smaller gap and text
+          verticalAlign === "top" ? "pb-2" : "pt-2", // Reduced padding
           className
         )}
       >
@@ -293,20 +303,20 @@ const ChartLegendContent = React.forwardRef<
             <div
               key={item.value}
               className={cn(
-                "flex items-center gap-1.5 [&>svg]:h-3 [&>svg]:w-3 [&>svg]:text-muted-foreground"
+                "flex items-center gap-1 [&>svg]:h-2.5 [&>svg]:w-2.5 [&>svg]:text-muted-foreground" // Smaller icon size
               )}
             >
               {itemConfig?.icon && !hideIcon ? (
                 <itemConfig.icon />
               ) : (
                 <div
-                  className="h-2 w-2 shrink-0 rounded-[2px]"
+                  className="h-2 w-2 shrink-0 rounded-[2px]" // Smaller indicator
                   style={{
                     backgroundColor: item.color,
                   }}
                 />
               )}
-              {itemConfig?.label}
+               <span className="text-muted-foreground">{itemConfig?.label || item.value}</span>
             </div>
           )
         })}
@@ -314,7 +324,7 @@ const ChartLegendContent = React.forwardRef<
     )
   }
 )
-ChartLegendContent.displayName = "ChartLegend"
+ChartLegendContent.displayName = "ChartLegendContent"
 
 // Helper to extract item config from a payload.
 function getPayloadConfigFromPayload(
@@ -350,10 +360,18 @@ function getPayloadConfigFromPayload(
     ] as string
   }
 
-  return configLabelKey in config
-    ? config[configLabelKey]
-    : config[key as keyof typeof config]
+   // Ensure configLabelKey exists in config before accessing
+   if (configLabelKey in config) {
+       return config[configLabelKey];
+   }
+   // Fallback to using the original key if configLabelKey derived key doesn't exist
+   if (key in config) {
+        return config[key as keyof typeof config];
+   }
+
+  return undefined; // Return undefined if neither key works
 }
+
 
 export {
   ChartContainer,

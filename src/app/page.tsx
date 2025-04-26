@@ -14,12 +14,22 @@ import {
   SidebarFooter,
 } from '@/components/ui/sidebar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ListTodo, Timer, Award, Trophy, LayoutDashboard } from 'lucide-react'; // Changed ShieldQuestion to Trophy, added LayoutDashboard
+import { ListTodo, Timer, Award, Trophy, LayoutDashboard, BookOpen } from 'lucide-react'; // Use BookOpen temporarily, replace later if needed
 import StudyTracker from '@/components/study-tracker';
 import PomodoroTimer from '@/components/pomodoro-timer';
 import LevelSystem from '@/components/level-system';
 import Achievements from '@/components/achievements';
-import Overview from '@/components/overview'; // Import the new Overview component
+import Overview from '@/components/overview';
+import { cn } from '@/lib/utils';
+
+// Simple Pixel Scroll SVG Icon
+const PixelScrollIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6 text-accent">
+    <path style={{ imageRendering: 'pixelated' }} d="M6 2H18V4H6V2ZM5 5V19H7V18H8V17H9V16H15V17H16V18H17V19H19V5H17V6H16V7H15V8H9V7H8V6H7V5H5ZM6 20H18V22H6V20Z" />
+    <path style={{ imageRendering: 'pixelated', fill: 'hsl(var(--foreground)/0.8)' }} d="M7 5H17V6H16V7H15V8H9V7H8V6H7V5ZM7 18V19H17V18H16V17H15V16H9V17H8V18H7Z" />
+  </svg>
+);
+
 
 export default function Home() {
   const [activeSection, setActiveSection] = useState('overview'); // Default to overview
@@ -27,15 +37,12 @@ export default function Home() {
   return (
     <SidebarProvider>
       <div className="flex min-h-screen bg-background">
+        {/* Sidebar styling uses theme vars from globals.css */}
         <Sidebar collapsible='icon' variant='inset'>
           <SidebarHeader>
             <div className="flex items-center gap-2 justify-center group-data-[collapsible=icon]:justify-center">
-              {/* OSRS-style icon placeholder - Consider replacing with an actual pixel art icon */}
-               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-6 h-6 text-accent">
-                 <path fillRule="evenodd" d="M2 4.75A2.75 2.75 0 014.75 2h10.5A2.75 2.75 0 0118 4.75v10.5A2.75 2.75 0 0115.25 18H4.75A2.75 2.75 0 012 15.25V4.75zm6.75.75a.75.75 0 000 1.5h3a.75.75 0 000-1.5h-3zm-3 3.5a.75.75 0 000 1.5h9a.75.75 0 000-1.5h-9zm0 3a.75.75 0 000 1.5h9a.75.75 0 000-1.5h-9z" clipRule="evenodd" />
-               </svg>
-
-              <h1 className="text-lg font-semibold group-data-[collapsible=icon]:hidden">StudyQuest</h1>
+              <PixelScrollIcon />
+              <h1 className="text-xl font-semibold group-data-[collapsible=icon]:hidden tracking-wider">StudyQuest</h1>
             </div>
           </SidebarHeader>
           <SidebarContent>
@@ -45,8 +52,9 @@ export default function Home() {
                   onClick={() => setActiveSection('overview')}
                   isActive={activeSection === 'overview'}
                   tooltip="Overview"
+                  className="text-sm"
                 >
-                  <LayoutDashboard />
+                  <LayoutDashboard strokeWidth={1.5}/>
                   <span className="group-data-[collapsible=icon]:hidden">Overview</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
@@ -55,8 +63,9 @@ export default function Home() {
                   onClick={() => setActiveSection('study')}
                   isActive={activeSection === 'study'}
                   tooltip="Study Tracker"
+                  className="text-sm"
                 >
-                  <ListTodo />
+                  <ListTodo strokeWidth={1.5}/>
                   <span className="group-data-[collapsible=icon]:hidden">Study Tracker</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
@@ -65,8 +74,9 @@ export default function Home() {
                   onClick={() => setActiveSection('pomodoro')}
                   isActive={activeSection === 'pomodoro'}
                   tooltip="Pomodoro Timer"
+                  className="text-sm"
                 >
-                  <Timer />
+                  <Timer strokeWidth={1.5}/>
                   <span className="group-data-[collapsible=icon]:hidden">Pomodoro Timer</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
@@ -75,8 +85,9 @@ export default function Home() {
                   onClick={() => setActiveSection('levels')}
                   isActive={activeSection === 'levels'}
                   tooltip="Level System"
+                   className="text-sm"
                 >
-                  <Award />
+                  <Award strokeWidth={1.5}/>
                   <span className="group-data-[collapsible=icon]:hidden">Level System</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
@@ -85,23 +96,28 @@ export default function Home() {
                   onClick={() => setActiveSection('achievements')}
                   isActive={activeSection === 'achievements'}
                   tooltip="Achievements"
+                   className="text-sm"
                 >
-                  <Trophy /> {/* Changed icon */}
+                  <Trophy strokeWidth={1.5}/>
                   <span className="group-data-[collapsible=icon]:hidden">Achievements</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
             </SidebarMenu>
           </SidebarContent>
            <SidebarFooter className="group-data-[collapsible=icon]:hidden">
-             {/* Footer content if needed */}
-             <p className="text-xs text-muted-foreground text-center">OSRS Inspired</p>
+             <p className="text-xs text-muted-foreground text-center opacity-70">OSRS Inspired</p>
            </SidebarFooter>
         </Sidebar>
-        <SidebarInset className="flex-1 p-4 md:p-6 bg-background text-foreground">
+
+        {/* Main Content Area */}
+        <SidebarInset className={cn(
+            "flex-1 p-3 md:p-4 bg-background text-foreground",
+            // "osrs-box" // Optional: Apply OSRS box style to the whole inset area
+            )}>
           <div className="flex items-center justify-between mb-4 md:mb-6">
              <div className="flex items-center gap-2">
-                 <SidebarTrigger className="md:hidden" />
-                 <h2 className="text-xl font-semibold capitalize">
+                 <SidebarTrigger className="md:hidden border border-input hover:bg-muted" />
+                 <h2 className="text-lg font-semibold capitalize tracking-wide">
                     {activeSection === 'overview' && 'Dashboard Overview'}
                     {activeSection === 'study' && 'Study Task Manager'}
                     {activeSection === 'pomodoro' && 'Pomodoro Timer'}
@@ -112,7 +128,8 @@ export default function Home() {
             <div></div> {/* Placeholder for potential header actions */}
           </div>
 
-          <div className="grid grid-cols-1 gap-6">
+          {/* Apply OSRS box styling to the content container */}
+          <div className="grid grid-cols-1 gap-4 osrs-box p-3 md:p-4">
             {activeSection === 'overview' && <Overview />}
             {activeSection === 'study' && <StudyTracker />}
             {activeSection === 'pomodoro' && <PomodoroTimer />}

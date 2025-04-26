@@ -3,45 +3,46 @@
 @tailwind utilities;
 
 body {
-  font-family: var(--font-vt323), monospace; /* Changed font */
+  font-family: var(--font-vt323), monospace; /* OSRS font */
+  image-rendering: pixelated; /* Enhance pixel art look */
 }
 
 @layer base {
   :root {
-    /* OSRS Inspired Theme - Primarily Dark */
+    /* OSRS Inspired Theme - Refined */
     --background: 20 10% 15%; /* Dark Brown/Grey */
     --foreground: 40 20% 90%; /* Light Beige/Parchment */
     --card: 20 10% 20%; /* Slightly lighter Dark Brown/Grey */
     --card-foreground: 40 20% 90%;
     --popover: 20 10% 18%; /* Dark Popover */
     --popover-foreground: 40 20% 90%;
-    --primary: 120 20% 40%; /* Muted Green */
+    --primary: 120 30% 50%; /* Slightly more saturated Green */
     --primary-foreground: 120 10% 95%; /* Very Light Green/White */
-    --secondary: 30 15% 30%; /* Muted Brown */
+    --secondary: 30 20% 40%; /* Slightly richer Brown */
     --secondary-foreground: 30 10% 85%; /* Light Brown/Beige */
-    --muted: 30 10% 25%; /* Darker Muted Brown */
-    --muted-foreground: 40 15% 65%; /* Greyish Beige */
-    --accent: 45 80% 55%; /* Gold/Yellow */
+    --muted: 30 10% 28%; /* Adjusted Muted Brown */
+    --muted-foreground: 40 15% 70%; /* Adjusted Greyish Beige */
+    --accent: 45 85% 60%; /* Brighter Gold/Yellow */
     --accent-foreground: 45 90% 15%; /* Dark Brown for contrast on Gold */
-    --destructive: 0 60% 50%; /* Muted Red */
+    --destructive: 0 65% 55%; /* Slightly brighter Red */
     --destructive-foreground: 0 0% 98%;
-    --border: 30 10% 35%; /* Brownish Border */
-    --input: 30 10% 25%; /* Darker input background */
-    --ring: 45 80% 55%; /* Gold Ring */
+    --border: 30 15% 40%; /* Slightly more defined Brownish Border */
+    --input: 30 10% 22%; /* Darker input background */
+    --ring: 45 85% 60%; /* Brighter Gold Ring */
     --chart-1: 12 76% 61%;
     --chart-2: 173 58% 39%;
     --chart-3: 197 37% 24%;
     --chart-4: 43 74% 66%;
     --chart-5: 27 87% 67%;
-    --radius: 0.25rem; /* Reduced border radius */
+    --radius: 0.125rem; /* Sharper corners (2px) */
     --sidebar-background: 20 12% 12%; /* Very Dark Sidebar */
     --sidebar-foreground: 40 15% 75%; /* Slightly Greyer Text */
-    --sidebar-primary: 45 80% 55%; /* Gold Accent in Sidebar */
+    --sidebar-primary: 45 85% 60%; /* Gold Accent in Sidebar */
     --sidebar-primary-foreground: 45 90% 15%;
     --sidebar-accent: 20 10% 25%; /* Dark Accent */
     --sidebar-accent-foreground: 40 20% 90%;
     --sidebar-border: 20 5% 28%; /* Dark Border */
-    --sidebar-ring: 45 80% 55%;
+    --sidebar-ring: 45 85% 60%;
   }
 
   .dark {
@@ -52,19 +53,19 @@ body {
     --card-foreground: 40 20% 90%;
     --popover: 20 10% 18%;
     --popover-foreground: 40 20% 90%;
-    --primary: 120 20% 40%;
+    --primary: 120 30% 50%;
     --primary-foreground: 120 10% 95%;
-    --secondary: 30 15% 30%;
+    --secondary: 30 20% 40%;
     --secondary-foreground: 30 10% 85%;
-    --muted: 30 10% 25%;
-    --muted-foreground: 40 15% 65%;
-    --accent: 45 80% 55%;
+    --muted: 30 10% 28%;
+    --muted-foreground: 40 15% 70%;
+    --accent: 45 85% 60%;
     --accent-foreground: 45 90% 15%;
-    --destructive: 0 60% 50%;
+    --destructive: 0 65% 55%;
     --destructive-foreground: 0 0% 98%;
-    --border: 30 10% 35%;
-    --input: 30 10% 25%;
-    --ring: 45 80% 55%;
+    --border: 30 15% 40%;
+    --input: 30 10% 22%;
+    --ring: 45 85% 60%;
     --chart-1: 12 76% 61%;
     --chart-2: 173 58% 39%;
     --chart-3: 197 37% 24%;
@@ -72,12 +73,12 @@ body {
     --chart-5: 27 87% 67%;
     --sidebar-background: 20 12% 12%;
     --sidebar-foreground: 40 15% 75%;
-    --sidebar-primary: 45 80% 55%;
+    --sidebar-primary: 45 85% 60%;
     --sidebar-primary-foreground: 45 90% 15%;
     --sidebar-accent: 20 10% 25%;
     --sidebar-accent-foreground: 40 20% 90%;
     --sidebar-border: 20 5% 28%;
-    --sidebar-ring: 45 80% 55%;
+    --sidebar-ring: 45 85% 60%;
   }
 }
 
@@ -89,4 +90,20 @@ body {
     @apply bg-background text-foreground;
     font-feature-settings: "ss01"; /* Optional: improves readability for some pixel fonts */
   }
+}
+
+/* Additional OSRS styles */
+@layer components {
+    /* OSRS-style box */
+    .osrs-box {
+        @apply border-2 border-black bg-card shadow-[inset_2px_2px_0_0_rgba(255,255,255,0.1),inset_-2px_-2px_0_0_rgba(0,0,0,0.2)];
+    }
+    /* Inner bevel for some elements */
+    .osrs-inner-bevel {
+         @apply shadow-[inset_1px_1px_0_0_hsl(var(--foreground)/0.2),inset_-1px_-1px_0_0_hsl(var(--background)/0.5)];
+    }
+     /* Simple border like OSRS item slots */
+    .osrs-border {
+        @apply border border-[hsl(var(--border)/0.7)];
+    }
 }

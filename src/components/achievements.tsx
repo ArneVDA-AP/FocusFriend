@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Trophy, Lock } from 'lucide-react'; // Changed ShieldQuestion to Trophy, added Lock
+import { Trophy, Lock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface Achievement {
@@ -11,7 +11,7 @@ interface Achievement {
     description: string;
     unlocked: boolean;
     icon: React.ReactNode;
-    unlockCondition: (data: UserStats) => boolean; // Function to check unlock status
+    unlockCondition: (data: UserStats) => boolean;
 }
 
 interface UserStats {
@@ -24,6 +24,7 @@ interface UserStats {
 const LOCAL_STORAGE_KEY_TASKS = 'studyQuestTasks';
 const LOCAL_STORAGE_KEY_LEVEL = 'studyQuestLevel';
 const LOCAL_STORAGE_KEY_POMODORO = 'studyQuestPomodoroSessions';
+const LOCAL_STORAGE_KEY_XP = 'studyQuestXP'; // Added XP key
 
 
 const initialAchievements: Omit<Achievement, 'unlocked' | 'icon'>[] = [
@@ -48,14 +49,13 @@ export default function Achievements() {
              ...ach,
              unlocked: isUnlocked,
              icon: isUnlocked
-                 ? <Trophy size={24} className="text-accent stroke-1" /> // Gold trophy for unlocked
-                 : <Lock size={24} className="text-muted-foreground/60 stroke-1" />, // Lock icon for locked
+                 ? <Trophy size={20} className="text-accent stroke-1" /> // Slightly smaller icon
+                 : <Lock size={20} className="text-muted-foreground/50 stroke-1" />, // Dimmed lock
          };
      }));
   };
 
 
-  // Function to fetch and update stats
   const fetchAndUpdateStats = () => {
         const storedTasks = localStorage.getItem(LOCAL_STORAGE_KEY_TASKS);
         const storedLevel = localStorage.getItem(LOCAL_STORAGE_KEY_LEVEL);
@@ -64,9 +64,15 @@ export default function Achievements() {
         let completedTasks = 0;
         let studyTime = 0;
         if (storedTasks) {
-            const tasks = JSON.parse(storedTasks);
-            completedTasks = tasks.filter((task: { completed: boolean }) => task.completed).length;
-            studyTime = tasks.reduce((sum: number, task: { studyTime: number }) => sum + task.studyTime, 0);
+            try {
+                const tasks = JSON.parse(storedTasks);
+                if (Array.isArray(tasks)) {
+                    completedTasks = tasks.filter((task: { completed: boolean }) => task.completed).length;
+                    studyTime = tasks.reduce((sum: number, task: { studyTime: number }) => sum + (task.studyTime || 0), 0);
+                }
+            } catch (e) {
+                console.error("Failed to parse tasks from localStorage", e);
+            }
         }
 
         const level = storedLevel ? parseInt(storedLevel, 10) : 1;
@@ -79,22 +85,28 @@ export default function Achievements() {
             pomodoroSessions: pomodoroSessions,
         };
         setUserStats(currentStats);
-        updateAchievements(currentStats); // Update achievements based on new stats
+        updateAchievements(currentStats);
   };
 
-  // Initial load and listener setup
   useEffect(() => {
-    fetchAndUpdateStats(); // Initial fetch
+    fetchAndUpdateStats();
 
-    const handleStorageUpdate = () => {
-      fetchAndUpdateStats(); // Re-fetch stats on any relevant update
+    const handleStorageUpdate = (event: Event) => {
+       // Check if the event is relevant (related to our keys)
+       if (event instanceof StorageEvent) {
+           if ([LOCAL_STORAGE_KEY_TASKS, LOCAL_STORAGE_KEY_LEVEL, LOCAL_STORAGE_KEY_POMODORO, LOCAL_STORAGE_KEY_XP].includes(event.key || '')) {
+               fetchAndUpdateStats();
+           }
+       } else {
+          // Handle custom events
+           fetchAndUpdateStats();
+       }
     };
 
-    // Listen to specific update events for efficiency
     window.addEventListener('taskUpdate', handleStorageUpdate);
-    window.addEventListener('xpUpdate', handleStorageUpdate); // Level depends on XP
+    window.addEventListener('xpUpdate', handleStorageUpdate);
     window.addEventListener('pomodoroUpdate', handleStorageUpdate);
-    window.addEventListener('storage', handleStorageUpdate); // Fallback for direct storage edits
+    window.addEventListener('storage', handleStorageUpdate);
 
     return () => {
       window.removeEventListener('taskUpdate', handleStorageUpdate);
@@ -102,46 +114,49 @@ export default function Achievements() {
       window.removeEventListener('pomodoroUpdate', handleStorageUpdate);
       window.removeEventListener('storage', handleStorageUpdate);
     };
-  }, []); // Empty dependency array ensures this runs only once on mount
+  }, []);
 
   const unlockedCount = achievements.filter(a => a.unlocked).length;
   const totalCount = achievements.length;
 
   return (
-    <Card className="shadow-md border border-border bg-card/80">
-      <CardHeader>
-        <CardTitle>Achievements Log</CardTitle>
+    <Card className="osrs-box">
+      <CardHeader className="pb-2 pt-3 px-4">
+        <CardTitle className="text-base font-semibold">Achievements Log</CardTitle>
          <CardDescription>
             Track your milestones. ({unlockedCount} / {totalCount} Unlocked)
          </CardDescription>
       </CardHeader>
-      <CardContent>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+      <CardContent className="p-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
           {achievements.map((ach) => (
-            <Card key={ach.id} className={cn(
-                'p-3 flex items-center gap-3 transition-colors duration-200 border',
+            <div key={ach.id} className={cn(
+                'p-2 flex items-center gap-2 rounded-sm border transition-colors duration-150 osrs-inner-bevel',
                 ach.unlocked
-                    ? 'bg-accent/10 border-accent/30 hover:bg-accent/20' // Unlocked style
-                    : 'bg-muted/30 border-muted/50 hover:bg-muted/40' // Locked style
+                    ? 'bg-accent/10 border-accent/40 hover:bg-accent/20'
+                    : 'bg-black/20 border-muted/40 hover:bg-black/30'
                  )}>
-              <div className={`flex-shrink-0 p-2 rounded ${ach.unlocked ? 'bg-accent/20' : 'bg-muted/50'}`}>
+              <div className={cn(
+                  'flex-shrink-0 p-1.5 rounded-sm border',
+                   ach.unlocked ? 'bg-accent/20 border-accent/50' : 'bg-muted/30 border-muted/50'
+                   )}>
                 {ach.icon}
               </div>
-              <div className="min-w-0">
+              <div className="min-w-0 flex-1">
                 <h3 className={cn(
                     'font-semibold text-sm truncate',
-                     ach.unlocked ? 'text-accent' : 'text-foreground/80' // Title color
+                     ach.unlocked ? 'text-accent' : 'text-foreground/80'
                  )} title={ach.name}>
                     {ach.name}
                  </h3>
                 <p className={cn(
                     'text-xs',
-                    ach.unlocked ? 'text-accent/80' : 'text-muted-foreground' // Description color
+                    ach.unlocked ? 'text-accent/80' : 'text-muted-foreground/70'
                  )} title={ach.description}>
                     {ach.description}
                  </p>
               </div>
-            </Card>
+            </div>
           ))}
         </div>
       </CardContent>

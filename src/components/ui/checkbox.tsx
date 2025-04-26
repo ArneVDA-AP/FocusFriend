@@ -13,7 +13,8 @@ const Checkbox = React.forwardRef<
   <CheckboxPrimitive.Root
     ref={ref}
     className={cn(
-      "peer h-4 w-4 shrink-0 rounded-xs border border-primary ring-offset-background focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50 data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground", // Adjusted rounded, ring, ring-offset
+      "peer h-3.5 w-3.5 shrink-0 rounded-xs border border-primary ring-offset-background focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-0 disabled:cursor-not-allowed disabled:opacity-50 data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground", // Adjusted size, rounded, ring-offset
+       "shadow-[inset_1px_1px_0_0_hsl(var(--foreground)/0.1),inset_-1px_-1px_0_0_hsl(var(--background)/0.8)]", // OSRS inner bevel
       className
     )}
     {...props}
@@ -21,7 +22,7 @@ const Checkbox = React.forwardRef<
     <CheckboxPrimitive.Indicator
       className={cn("flex items-center justify-center text-current")}
     >
-      <Check className="h-3.5 w-3.5" /> {/* Adjusted icon size */}
+      <Check className="h-3 w-3" strokeWidth={3} /> {/* Adjusted icon size and stroke */}
     </CheckboxPrimitive.Indicator>
   </CheckboxPrimitive.Root>
 ))
