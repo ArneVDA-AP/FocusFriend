@@ -59,6 +59,7 @@ export default function StudyTracker() {
   const [xp, setXp] = useState<number>(0);
   const [level, setLevel] = useState<number>(1);
   const [xpToNextLevel, setXpToNextLevel] = useState<number>(LEVEL_UP_BASE_XP);
+  const [prevLevel, setPrevLevel] = useState<number>(1); // Track previous level for level-up toast
   const { toast } = useToast();
 
   const calculateXpToNextLevel = (currentLevel: number) => {
@@ -93,6 +94,7 @@ export default function StudyTracker() {
     if (storedLevel) {
       const parsedLevel = parseInt(storedLevel, 10);
       setLevel(parsedLevel);
+      setPrevLevel(parsedLevel); // Initialize prevLevel
       setXpToNextLevel(calculateXpToNextLevel(parsedLevel));
     } else {
       setXpToNextLevel(calculateXpToNextLevel(1));
@@ -111,28 +113,38 @@ export default function StudyTracker() {
     localStorage.setItem(LOCAL_STORAGE_KEY_XP, xp.toString());
     localStorage.setItem(LOCAL_STORAGE_KEY_LEVEL, level.toString());
     dispatchStorageUpdateEvent(); // Notify other components
-  }, [xp, level]);
+
+    // Trigger level up toast only if level actually increased
+    if (level > prevLevel) {
+      setTimeout(() => {
+        toast({
+          title: "Level Up!",
+          description: `Congratulations! You've reached Level ${level}!`,
+          variant: "default",
+          className: "border-accent text-foreground",
+        });
+      }, 0); // Defer toast call
+      setPrevLevel(level); // Update prevLevel after toast
+    }
+  }, [xp, level, prevLevel, toast]); // Add prevLevel and toast to dependencies
 
   const addXP = useCallback((amount: number) => {
     setXp(prevXp => {
       const newXp = prevXp + amount;
-      let currentLevel = level;
-      let requiredXp = xpToNextLevel;
+      let currentLevel = level; // Use state level
+      let requiredXp = xpToNextLevel; // Use state xpToNextLevel
       let accumulatedXp = newXp;
+      let leveledUp = false; // Flag to check if level up occurred
 
       while (accumulatedXp >= requiredXp) {
         accumulatedXp -= requiredXp;
         currentLevel += 1;
         requiredXp = calculateXpToNextLevel(currentLevel);
-        toast({
-          title: "Level Up!",
-          description: `Congratulations! You've reached Level ${currentLevel}!`,
-          variant: "default", // Use gold accent potentially
-           className: "border-accent text-foreground",
-        });
+        leveledUp = true;
       }
 
-      if (currentLevel > level) {
+      if (leveledUp) {
+        // Set state which will trigger the useEffect for the toast
         setLevel(currentLevel);
         setXpToNextLevel(requiredXp);
         return accumulatedXp; // Return remaining XP after level ups
@@ -140,7 +152,7 @@ export default function StudyTracker() {
 
       return newXp; // Return updated XP if no level up
     });
-  }, [level, xpToNextLevel, toast]);
+  }, [level, xpToNextLevel, calculateXpToNextLevel]); // Remove toast from dependencies here
 
 
   const startTimer = useCallback((taskId: string) => {
@@ -218,33 +230,46 @@ export default function StudyTracker() {
   };
 
   const toggleTaskCompletion = (id: string) => {
-    setTasks(
-      tasks.map(task => {
+    let taskText = '';
+    let completed = false;
+
+    setTasks(prevTasks =>
+      prevTasks.map(task => {
         if (task.id === id) {
           const updatedTask = { ...task, completed: !task.completed };
+          taskText = updatedTask.text; // Store task text for toast
+          completed = updatedTask.completed; // Store completion status for toast
+
+          if (updatedTask.completed && updatedTask.isActive) {
+            stopTimer(); // Stop timer if the task being completed is active
+          }
+
           if (updatedTask.completed) {
-            if(task.isActive) {
-              stopTimer();
-            }
-            addXP(XP_PER_TASK_COMPLETION);
-            toast({
-              title: "Task Completed!",
-              description: `+${XP_PER_TASK_COMPLETION} XP! "${updatedTask.text}"`,
-              action: <CheckCircle className="text-accent" />, // Accent color for success
-               className: "border-accent text-foreground",
-            });
-          } else {
-             toast({
-              title: "Task Reopened",
-              description: `"${updatedTask.text}" marked as incomplete.`,
-               className: "border-secondary text-foreground",
-            });
+             addXP(XP_PER_TASK_COMPLETION); // Add XP only when marking as complete
           }
           return updatedTask;
         }
         return task;
       })
     );
+
+     // Defer toast call to avoid updating during render
+     setTimeout(() => {
+        if (completed) {
+            toast({
+                title: "Task Completed!",
+                description: `+${XP_PER_TASK_COMPLETION} XP! "${taskText}"`,
+                action: <CheckCircle className="text-accent" />,
+                className: "border-accent text-foreground",
+            });
+        } else {
+            toast({
+                title: "Task Reopened",
+                description: `"${taskText}" marked as incomplete.`,
+                className: "border-secondary text-foreground",
+            });
+        }
+    }, 0);
   };
 
    const startEditing = (id: string) => {
@@ -343,7 +368,7 @@ export default function StudyTracker() {
         <CardContent className="space-y-2">
             <div className="flex justify-between items-center mb-1">
                 <span className="font-medium text-sm">Level {level}</span>
-                <span className="text-xs text-muted-foreground">{Math.round(xp)} / {xpToNextLevel} XP</span>
+                 <span className="text-xs text-muted-foreground">{Math.round(xp)} / {xpToNextLevel} XP</span>
             </div>
           <Progress value={levelProgress} className="w-full h-1.5 [&>div]:bg-gradient-to-r [&>div]:from-accent [&>div]:to-yellow-600" />
         </CardContent>
