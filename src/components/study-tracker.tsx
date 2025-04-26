@@ -316,7 +316,7 @@ export default function StudyTracker() {
     }
   };
 
-  const levelProgress = (xp / xpToNextLevel) * 100;
+  const levelProgress = xpToNextLevel > 0 ? (xp / xpToNextLevel) * 100 : 0; // Use xp state variable
 
   const sortedTasks = [...tasks].sort((a, b) => {
      // Sort by completion status first (incomplete first)
@@ -343,7 +343,7 @@ export default function StudyTracker() {
         <CardContent className="space-y-2">
             <div className="flex justify-between items-center mb-1">
                 <span className="font-medium text-sm">Level {level}</span>
-                <span className="text-xs text-muted-foreground">{Math.round(currentXp)} / {xpToNextLevel} XP</span>
+                <span className="text-xs text-muted-foreground">{Math.round(xp)} / {xpToNextLevel} XP</span>
             </div>
           <Progress value={levelProgress} className="w-full h-1.5 [&>div]:bg-gradient-to-r [&>div]:from-accent [&>div]:to-yellow-600" />
         </CardContent>
