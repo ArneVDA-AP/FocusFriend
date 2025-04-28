@@ -52,7 +52,7 @@ export default function Settings() {
   useEffect(() => {
     localStorage.setItem(FOCUSFRIEND_SETTINGS_KEY, JSON.stringify(settings));
      // Optional: Dispatch an event if live updates are needed in other components
-     // window.dispatchEvent(new CustomEvent('settingsUpdate'));
+     window.dispatchEvent(new CustomEvent('settingsUpdate'));
   }, [settings]);
 
   const handleSliderChange = (key: keyof PomodoroSettings, value: number[]) => {
@@ -64,7 +64,7 @@ export default function Settings() {
   };
 
   return (
-    <Card className="osrs-box">
+    <Card className="osrs-box max-w-xl mx-auto"> {/* Added max-w-xl and mx-auto */}
       <CardHeader className="pb-4 pt-3 px-4">
         <CardTitle className="text-base font-semibold">Pomodoro Timer Settings</CardTitle>
         <CardDescription className="text-xs">Customize your focus sessions and breaks.</CardDescription>
