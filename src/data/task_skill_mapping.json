@@ -1,0 +1,16 @@
+{
+    "task_mappings": [
+        {
+            "task_type": "reading",
+            "skill_id": "reading"
+        },
+        {
+            "task_type": "coding",
+            "skill_id": "coding"
+        },
+        {
+            "task_type": "memorization",
+            "skill_id": "memorization"
+        }
+    ]
+}

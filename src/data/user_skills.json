@@ -1,0 +1,22 @@
+{
+  "user_skills": [
+    {
+      "user_id": "user123",
+      "skill_id": "reading",
+      "current_level": 1,
+      "current_xp": 0
+    },
+    {
+      "user_id": "user123",
+      "skill_id": "coding",
+      "current_level": 1,
+      "current_xp": 0
+    },
+    {
+      "user_id": "user123",
+      "skill_id": "memorization",
+      "current_level": 1,
+      "current_xp": 0
+    }
+  ]
+}

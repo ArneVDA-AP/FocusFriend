@@ -1,22 +1,35 @@
 'use client';
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Clock, ListChecks, Star, Trophy, TrendingUp, BarChartHorizontalBig, Gem } from 'lucide-react';
+import { Clock, ListChecks, Trophy, TrendingUp, BarChartHorizontalBig, Gem } from 'lucide-react';
 import {
   ChartContainer,
   ChartTooltipContent,
-} from "@/components/ui/chart";
+} from '@/components/ui/chart';
+// Removed import { completeTask } from '@/lib/skills';
+// Removed import * as fs from 'fs';
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer } from "recharts";
 import { cn } from '@/lib/utils';
 import type { Task } from './study-tracker'; // Import Task type
 import type { UserStats } from './achievements'; // Import UserStats type
+
+import { Button } from '@/components/ui/button'; // Keep button import if needed elsewhere, remove if not
 
 interface OverviewProps {
     stats: UserStats;
     xp: number;
     xpToNextLevel: number;
     tasks: Task[]; // Pass full tasks array
+}
+
+interface Skill {
+    id: string;
+    name: string;
+    current_level: number;
+    current_xp: number;
+    xpToNextLevel: number;
+    // Removed tasks property as it wasn't used and might cause confusion
 }
 
 const formatTime = (totalSeconds: number): string => {
@@ -45,8 +58,69 @@ const OsrsProgressBar = ({ value, label, colorClass = "bg-primary" }: { value: n
     </div>
 );
 
+// Skills Component
+const SkillsComponent = ({ skills }: { skills: Skill[] }) => {
+    // Handle empty skills state gracefully
+    if (!skills || skills.length === 0) {
+        return (
+            <Card className="osrs-box">
+                <CardHeader className="pb-2 pt-3 px-4">
+                    <CardTitle className="text-base font-semibold">Skills</CardTitle>
+                </CardHeader>
+                <CardContent className="px-3 pb-2">
+                    <p className="text-sm text-muted-foreground">No skill data available.</p>
+                </CardContent>
+            </Card>
+        );
+    }
+
+    return (
+      <Card className="osrs-box">
+          <CardHeader className="pb-2 pt-3 px-4">
+             <CardTitle className="text-base font-semibold">Skills Overview</CardTitle>
+          </CardHeader>
+         <CardContent className="px-3 pb-3 space-y-3">
+            <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-3">
+            {skills.map((skill) => (
+                <div key={skill.id} className="p-2 rounded-sm border border-border/50 bg-black/10 osrs-inner-bevel space-y-1">
+                    <div className="flex items-center justify-between">
+                        <span className="text-xs font-medium uppercase tracking-wider">
+                        {skill.name}
+                        </span>
+                        <span className="text-lg font-bold leading-none">{skill.current_level}</span>
+                    </div>
+
+                    <OsrsProgressBar
+                    value={
+                        skill.xpToNextLevel > 0
+                        ? Math.min((skill.current_xp / skill.xpToNextLevel) * 100, 100)
+                        : 0
+                    }
+                    label={`${
+                    skill.xpToNextLevel > 0
+                        ? Math.round(Math.min((skill.current_xp / skill.xpToNextLevel) * 100, 100))
+                        : 0
+                    }% XP`}
+                    colorClass="bg-gradient-to-b from-accent via-yellow-500 to-accent"
+                    />
+                     <p className="text-xs text-muted-foreground text-right">
+                        {Math.round(skill.current_xp)} / {skill.xpToNextLevel} XP
+                    </p>
+                </div>
+            ))}
+            </div>
+         </CardContent>
+      </Card>
+    );
+  };
 
 export default function Overview({ stats, xp, xpToNextLevel, tasks }: OverviewProps) {
+
+    const [userSkills, setUserSkills] = useState<Skill[]>([]); // Initialize with empty array
+
+    // Removed useEffect block that used fs.readFileSync
+
+    // Removed handleTaskComplete function as it relied on fs
 
   const { tasksCompleted, totalStudyTime, level, pomodoroSessions, grownCrystals } = stats;
   const totalTasks = tasks.length; // Calculate total tasks from the passed array
@@ -70,6 +144,7 @@ export default function Overview({ stats, xp, xpToNextLevel, tasks }: OverviewPr
 
   return (
     <div className="space-y-4">
+       {/* Stat Cards */}
        <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
             {/* Total Study Time Card */}
             <Card className="osrs-box">
@@ -138,11 +213,11 @@ export default function Overview({ stats, xp, xpToNextLevel, tasks }: OverviewPr
            <CardHeader className="pb-2 pt-3 px-4">
              <CardTitle className="flex items-center gap-1.5 text-base font-semibold"><BarChartHorizontalBig className="h-4 w-4 text-primary" strokeWidth={1.5}/> Top 5 Tasks by Study Time</CardTitle>
            </CardHeader>
-           <CardContent className="pl-2 pr-4 pb-3">
+           <CardContent className="pl-2 pr-4 pb-3 h-48"> {/* Added fixed height */}
              {taskTimeData.length > 0 ? (
-                 <ChartContainer config={{ time: { label: "Time (min)", color: "hsl(var(--accent))" } }} className="w-full">
+                 <ChartContainer config={{ time: { label: "Time (min)", color: "hsl(var(--accent))" } }} className="w-full h-full"> {/* Ensure ChartContainer fills height */}
                     <ResponsiveContainer width="100%" height="100%">
-                        <BarChart layout="vertical" data={taskTimeData} margin={{ right: 10, left: 10 }}>
+                        <BarChart layout="vertical" data={taskTimeData} margin={{ right: 10, left: 10, top: 5, bottom: 5 }}> {/* Adjust margins */}
                             <CartesianGrid horizontal={false} stroke="hsl(var(--border)/0.4)" strokeDasharray="2 3" />
                             <XAxis type="number" dataKey="time" stroke="hsl(var(--foreground)/0.4)" fontSize={9} tickLine={false} axisLine={false} />
                             <YAxis
@@ -153,7 +228,8 @@ export default function Overview({ stats, xp, xpToNextLevel, tasks }: OverviewPr
                                 stroke="hsl(var(--foreground)/0.6)"
                                 fontSize={9}
                                 tick={{ fill: 'hsl(var(--foreground)/0.8)' }}
-                                width={70}
+                                width={70} // Adjust width if needed
+                                interval={0} // Ensure all labels are shown
                             />
                             <RechartsTooltip
                                 cursor={{ fill: 'hsl(var(--muted)/0.3)' }}
@@ -181,6 +257,12 @@ export default function Overview({ stats, xp, xpToNextLevel, tasks }: OverviewPr
              )}
            </CardContent>
          </Card>
+       </div>
+
+       {/* Skills section - Keep this if you load skill data differently */}
+       <div className="grid gap-4 md:grid-cols-1">
+            <SkillsComponent skills={userSkills} />
+            {/* Removed placeholder buttons for task completion */}
        </div>
     </div>
   );

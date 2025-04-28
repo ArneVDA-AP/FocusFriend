@@ -1,0 +1,22 @@
+{
+  "skills": [
+    {
+      "id": "reading",
+      "name": "Reading",
+      "description": "Improve your ability to consume and understand written information.",
+      "level_cap": 20
+    },
+    {
+      "id": "coding",
+      "name": "Coding",
+      "description": "Improve your ability to create and debug code.",
+      "level_cap": 20
+    },
+    {
+      "id": "memorization",
+      "name": "Memorization",
+      "description": "Improve your ability to memorize information.",
+      "level_cap": 20
+    }
+  ]
+}
