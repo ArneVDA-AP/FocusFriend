@@ -1,6 +1,5 @@
 'use client';
 
-import React from 'react';
 import { cn } from '@/lib/utils';
 
 interface FocusCrystalProps {
@@ -10,7 +9,7 @@ interface FocusCrystalProps {
 }
 
 // Generate 25 SVG paths representing crystal growth stages
-// These are illustrative and can be made more complex/visually appealing
+import React, { useEffect } from 'react'; // Import useEffect from 'react'
 const crystalStages: React.ReactNode[] = Array.from({ length: 25 }, (_, i) => {
     const progress = (i / 24) * 100; // Calculate progress percentage for stage i
     const baseSize = 3;
@@ -73,6 +72,13 @@ const FocusCrystal: React.FC<FocusCrystalProps> = ({ stage, isGrowing, isWithere
     }
 
     return (
+        <>
+           {
+                useEffect(() => {
+            }, [])
+           }
+
+
         <div className="relative w-full h-full flex items-center justify-center">
             {/* Optional: Subtle background circle */}
             <svg className="absolute inset-0 w-full h-full opacity-30" viewBox="0 0 100 100">
@@ -122,6 +128,8 @@ const FocusCrystal: React.FC<FocusCrystalProps> = ({ stage, isGrowing, isWithere
                  )}
             </svg>
         </div>
+        </>
+
     );
 };
 

@@ -34,10 +34,14 @@ export default function Settings({ settings: initialSettings, onSettingsChange, 
   const [isModified, setIsModified] = useState(false); // Track if settings have changed
 
   // Sync local state if the prop changes from the parent (e.g., initial load)
-  useEffect(() => {
-    setLocalSettings(initialSettings);
-    setIsModified(false); // Reset modified state when initial settings change
-  }, [initialSettings]);
+    useEffect(() => {
+      if (JSON.stringify(localSettings) !== JSON.stringify(initialSettings)) {
+        setLocalSettings(initialSettings);
+        setIsModified(false); // Reset modified state when initial settings change
+      } else {
+        setIsModified(false)
+      }
+    }, [initialSettings, localSettings]);
 
   // Callback to update local state and mark as modified
   const handleChange = useCallback(<K extends keyof PomodoroSettings>(key: K, value: PomodoroSettings[K]) => {

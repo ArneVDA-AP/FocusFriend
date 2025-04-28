@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState } from 'react';
@@ -6,7 +7,7 @@ import { Button, buttonVariants } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Trash2, Plus, Play, Pause, Edit2, Save, X, Clock, Flag } from 'lucide-react';
-import { Progress } from '@/components/ui/progress'; // Keep for internal progress bar display
+// Removed Progress import as the custom OSRS bar is used
 import {
   AlertDialog,
   AlertDialogAction,
@@ -52,7 +53,7 @@ interface StudyTrackerProps {
   startTaskTimer: (id: string) => void;
   stopTaskTimer: () => void;
   setTaskEditing: (id: string, isEditing: boolean) => void;
-  activeTaskId: string | null; // To show correct play/pause state
+  activeTaskId: string | null; // To show correct play/pause state based on parent state
 }
 
 export default function StudyTracker({
@@ -68,7 +69,7 @@ export default function StudyTracker({
   startTaskTimer,
   stopTaskTimer,
   setTaskEditing,
-  activeTaskId,
+  activeTaskId, // Receive activeTaskId from parent
 }: StudyTrackerProps) {
   const [newTaskText, setNewTaskText] = useState('');
   const [newTaskPriority, setNewTaskPriority] = useState<TaskPriority>('medium');
@@ -129,7 +130,8 @@ export default function StudyTracker({
      if (priorityOrder[a.priority] !== priorityOrder[b.priority]) {
        return priorityOrder[b.priority] - priorityOrder[a.priority];
      }
-     return parseInt(b.id, 10) - parseInt(a.id, 10);
+     // Keep original insertion order for tasks with same completion and priority (older tasks lower)
+     return parseInt(a.id, 10) - parseInt(b.id, 10);
    });
 
    // OSRS Progress Bar Component (moved inline for simplicity, could be separate)
@@ -179,13 +181,14 @@ export default function StudyTracker({
               value={newTaskText}
               onChange={(e) => setNewTaskText(e.target.value)}
               placeholder="Enter a new study task..."
-              onKeyPress={(e) => e.key === 'Enter' && handleAddTask()}
+              onKeyPress={(e) => e.key === 'Enter' && newTaskText.trim() && handleAddTask()} // Ensure text is not empty on Enter
               aria-label="New Task Input"
               className="flex-grow osrs-inner-bevel"
+              disabled={!!activeTaskId} // Disable input if a task timer is running
             />
              <div className="flex gap-2 flex-shrink-0">
-                <Select value={newTaskPriority} onValueChange={(value: TaskPriority) => setNewTaskPriority(value)}>
-                    <SelectTrigger className="w-[110px] osrs-inner-bevel text-xs">
+                <Select value={newTaskPriority} onValueChange={(value: TaskPriority) => setNewTaskPriority(value)} disabled={!!activeTaskId}>
+                    <SelectTrigger className="w-[110px] osrs-inner-bevel text-xs" disabled={!!activeTaskId}>
                         <SelectValue placeholder="Priority" />
                     </SelectTrigger>
                     <SelectContent className="osrs-box">
@@ -194,7 +197,7 @@ export default function StudyTracker({
                         <SelectItem value="high">High</SelectItem>
                     </SelectContent>
                 </Select>
-                <Button onClick={handleAddTask} aria-label="Add Task" className="text-sm px-3">
+                <Button onClick={handleAddTask} aria-label="Add Task" className="text-sm px-3" disabled={!newTaskText.trim() || !!activeTaskId}>
                     <Plus className="mr-1 h-3.5 w-3.5" strokeWidth={2.5} /> Add
                 </Button>
              </div>
@@ -210,7 +213,7 @@ export default function StudyTracker({
                   "flex items-center justify-between p-1.5 rounded-sm border-l-4 transition-colors duration-150 bg-card/80 hover:bg-card",
                   getPriorityColor(task.priority),
                   task.completed ? 'border-muted/60 opacity-60 hover:opacity-80' : 'border-l',
-                  task.isActive ? 'ring-1 ring-inset ring-accent/80 shadow-inner shadow-accent/10' : ''
+                  task.id === activeTaskId ? 'ring-1 ring-inset ring-accent/80 shadow-inner shadow-accent/10' : '' // Use activeTaskId for ring
                 )}
               >
                  <div className="flex items-center gap-2 flex-1 min-w-0">
@@ -219,6 +222,7 @@ export default function StudyTracker({
                     checked={task.completed}
                     onCheckedChange={() => toggleTaskCompletion(task.id)}
                     aria-label={`Mark task ${task.text} as ${task.completed ? 'incomplete' : 'complete'}`}
+                    disabled={task.id === activeTaskId} // Disable checkbox if timer is active for this task
                     className={cn(
                         "border-primary/50 data-[state=checked]:bg-primary data-[state=checked]:border-primary/80 data-[state=checked]:text-primary-foreground mt-0.5",
                         task.completed && "border-muted/80 data-[state=checked]:bg-muted data-[state=checked]:border-muted/80 data-[state=checked]:text-muted-foreground/60"
@@ -230,7 +234,7 @@ export default function StudyTracker({
                            value={editingTaskText} // Use local state for input value
                            onChange={(e) => setEditingTaskText(e.target.value)}
                            onKeyPress={(e) => e.key === 'Enter' && handleSaveTask(task.id)}
-                           // onBlur={() => handleCancelEditing(task.id)} // Optionally cancel on blur
+                           onBlur={() => handleCancelEditing(task.id)} // Cancel on blur
                            autoFocus
                            className={cn("h-7 flex-1 osrs-inner-bevel text-sm px-1.5", task.completed && "line-through text-muted-foreground/70")}
                          />
@@ -239,10 +243,11 @@ export default function StudyTracker({
                          htmlFor={`task-${task.id}`}
                         className={cn(
                           "flex-1 truncate cursor-pointer text-sm font-medium",
-                           task.completed ? 'line-through text-muted-foreground/70' : 'text-foreground hover:text-foreground/90'
+                           task.completed ? 'line-through text-muted-foreground/70' : 'text-foreground hover:text-foreground/90',
+                            task.id === activeTaskId ? 'cursor-default' : 'cursor-pointer' // Change cursor if active
                          )}
                         title={task.text}
-                        onDoubleClick={() => handleStartEditing(task)} // Allow editing on double click
+                        onDoubleClick={() => !task.completed && !(task.id === activeTaskId) && handleStartEditing(task)} // Allow editing only if not completed and not active
                       >
                         {task.text}
                       </label>
@@ -252,7 +257,7 @@ export default function StudyTracker({
                  <div className="flex items-center gap-1 sm:gap-1.5 ml-1 flex-shrink-0">
                     {task.isEditing ? (
                        <>
-                        <Button variant="ghost" size="icon" onClick={() => handleSaveTask(task.id)} aria-label="Save task" className="text-primary hover:text-primary hover:bg-primary/10 h-6 w-6">
+                        <Button variant="ghost" size="icon" onClick={() => handleSaveTask(task.id)} aria-label="Save task" className="text-primary hover:text-primary hover:bg-primary/10 h-6 w-6" disabled={!editingTaskText.trim()}>
                             <Save className="h-3.5 w-3.5" strokeWidth={2} />
                         </Button>
                          <Button variant="ghost" size="icon" onClick={() => handleCancelEditing(task.id)} aria-label="Cancel editing" className="text-muted-foreground/70 hover:text-foreground hover:bg-muted/20 h-6 w-6">
@@ -261,24 +266,28 @@ export default function StudyTracker({
                         </>
                     ) : (
                         <>
-                           <Flag size={11} strokeWidth={2} className={cn(
-                               'hidden sm:inline-block opacity-70 flex-shrink-0',
-                               task.completed && 'opacity-40',
-                               task.priority === 'high' && 'text-destructive',
-                               task.priority === 'medium' && 'text-accent/90',
-                               task.priority === 'low' && 'text-primary/80'
-                           )} />
-                           <Select value={task.priority} onValueChange={(value: TaskPriority) => updateTaskPriority(task.id, value)}>
-                               <SelectTrigger className="w-[25px] h-5 p-0 border-0 bg-transparent osrs-inner-bevel text-xs focus:ring-0 focus:ring-offset-0 focus:bg-muted/20">
-                                    <SelectValue placeholder="" />
-                               </SelectTrigger>
-                               <SelectContent className="osrs-box min-w-[80px]">
-                                   <SelectItem value="low">Low</SelectItem>
-                                   <SelectItem value="medium">Medium</SelectItem>
-                                   <SelectItem value="high">High</SelectItem>
-                               </SelectContent>
-                           </Select>
+                           {/* Priority Indicator & Select */}
+                           <div className="flex items-center gap-1">
+                               <Flag size={11} strokeWidth={2} className={cn(
+                                   'hidden sm:inline-block opacity-70 flex-shrink-0',
+                                   task.completed && 'opacity-40',
+                                   task.priority === 'high' && 'text-destructive',
+                                   task.priority === 'medium' && 'text-accent/90',
+                                   task.priority === 'low' && 'text-primary/80'
+                               )} />
+                               <Select value={task.priority} onValueChange={(value: TaskPriority) => updateTaskPriority(task.id, value)} disabled={task.completed || !!activeTaskId}>
+                                   <SelectTrigger className="w-[25px] h-5 p-0 border-0 bg-transparent osrs-inner-bevel text-xs focus:ring-0 focus:ring-offset-0 focus:bg-muted/20" disabled={task.completed || !!activeTaskId}>
+                                        <SelectValue placeholder="" />
+                                   </SelectTrigger>
+                                   <SelectContent className="osrs-box min-w-[80px]">
+                                       <SelectItem value="low">Low</SelectItem>
+                                       <SelectItem value="medium">Medium</SelectItem>
+                                       <SelectItem value="high">High</SelectItem>
+                                   </SelectContent>
+                               </Select>
+                           </div>
 
+                          {/* Study Time */}
                           <span className={cn(
                               "text-xs text-muted-foreground min-w-[50px] text-right flex items-center gap-0.5 tabular-nums mr-1",
                               task.completed && "opacity-60"
@@ -286,25 +295,28 @@ export default function StudyTracker({
                             <Clock size={10} strokeWidth={1.5} /> {formatTime(task.studyTime)}
                           </span>
 
+                          {/* Timer & Edit Buttons */}
                           {!task.completed && (
-                            task.isActive ? ( // Check isActive directly from task prop
+                            task.id === activeTaskId ? ( // Check if this task's timer is the active one
                               <Button variant="outline" size="icon" onClick={stopTaskTimer} aria-label={`Pause timer for task ${task.text}`} className="border-accent/70 text-accent/90 hover:bg-accent/10 hover:text-accent h-6 w-6">
                                 <Pause className="h-3.5 w-3.5" strokeWidth={2.5} />
                               </Button>
                             ) : (
-                              <Button variant="outline" size="icon" onClick={() => startTaskTimer(task.id)} aria-label={`Start timer for task ${task.text}`} className="border-primary/60 text-primary/90 hover:bg-primary/10 hover:text-primary h-6 w-6">
+                              <Button variant="outline" size="icon" onClick={() => startTaskTimer(task.id)} aria-label={`Start timer for task ${task.text}`} className="border-primary/60 text-primary/90 hover:bg-primary/10 hover:text-primary h-6 w-6" disabled={!!activeTaskId}>
                                 <Play className="h-3.5 w-3.5" strokeWidth={2.5} />
                               </Button>
                             )
                           )}
 
-                           <Button variant="ghost" size="icon" onClick={() => handleStartEditing(task)} aria-label={`Edit task ${task.text}`} className="text-muted-foreground/70 hover:text-foreground hover:bg-muted/20 h-6 w-6">
+                          {/* Edit Button */}
+                          <Button variant="ghost" size="icon" onClick={() => handleStartEditing(task)} aria-label={`Edit task ${task.text}`} className="text-muted-foreground/70 hover:text-foreground hover:bg-muted/20 h-6 w-6" disabled={task.completed || !!activeTaskId}>
                              <Edit2 className="h-3.5 w-3.5" strokeWidth={2} />
                            </Button>
 
+                          {/* Delete Button */}
                           <AlertDialog>
                             <AlertDialogTrigger asChild>
-                                <Button variant="ghost" size="icon" className="text-destructive/60 hover:text-destructive hover:bg-destructive/10 h-6 w-6" aria-label={`Delete task ${task.text}`}>
+                                <Button variant="ghost" size="icon" className="text-destructive/60 hover:text-destructive hover:bg-destructive/10 h-6 w-6" aria-label={`Delete task ${task.text}`} disabled={task.id === activeTaskId}>
                                   <Trash2 className="h-3.5 w-3.5" strokeWidth={2} />
                                 </Button>
                             </AlertDialogTrigger>
