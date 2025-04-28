@@ -374,23 +374,25 @@ export default function Home() {
   // Now define startTaskTimer
   const startTaskTimer = useCallback(
     (taskId: string) => {
-      // Stop any currently running task timer
-      stopTaskTimer(); // Call the already defined stopTaskTimer
+      // Stop any *other* currently running task timer
+      if (activeTaskId && activeTaskId !== taskId) {
+          stopTaskTimer(); // Stop the previous task timer
+      }
 
-      // Stop Pomodoro timer if it's running in work mode
-       if (pomodoroIsActive && pomodoroMode === 'work') {
-           setPomodoroIsActive(false); // Pause Pomodoro directly
-           if (pomodoroTimerIntervalRef.current) {
-             clearInterval(pomodoroTimerIntervalRef.current);
-             pomodoroTimerIntervalRef.current = null;
-           }
-           toast({
-               title: "Pomodoro Paused",
-               description: "Task timer started, Pomodoro paused.",
-               variant: "default",
-               className: "osrs-box"
-           });
-       }
+      // --- Removed logic to stop Pomodoro timer ---
+      // if (pomodoroIsActive && pomodoroMode === 'work') {
+      //     setPomodoroIsActive(false); // Pause Pomodoro directly
+      //     if (pomodoroTimerIntervalRef.current) {
+      //       clearInterval(pomodoroTimerIntervalRef.current);
+      //       pomodoroTimerIntervalRef.current = null;
+      //     }
+      //     toast({
+      //         title: "Pomodoro Paused",
+      //         description: "Task timer started, Pomodoro paused.",
+      //         variant: "default",
+      //         className: "osrs-box"
+      //     });
+      // }
 
       setActiveTaskId(taskId); // Set the active task ID
       // Update tasks state immutably
@@ -409,7 +411,7 @@ export default function Home() {
         );
       }, 1000);
     },
-    [addXP, pomodoroIsActive, pomodoroMode, toast, stopTaskTimer] // Dependencies are stable now
+    [addXP, stopTaskTimer, activeTaskId] // Removed pomodoro dependencies
   );
 
    // --- POMODORO MAIN LOGIC ---
@@ -422,16 +424,16 @@ export default function Home() {
           }
       } else {
           // Starting
-          // Stop any active task timer (stopTaskTimer is now defined above)
-           if (activeTaskId) {
-               stopTaskTimer();
-               toast({
-                   title: "Task Timer Stopped",
-                   description: "Pomodoro started, active task timer stopped.",
-                   variant: "default",
-                    className: "osrs-box"
-               });
-           }
+          // --- Removed logic to stop Task timer ---
+          // if (activeTaskId) {
+          //     stopTaskTimer();
+          //     toast({
+          //         title: "Task Timer Stopped",
+          //         description: "Pomodoro started, active task timer stopped.",
+          //         variant: "default",
+          //          className: "osrs-box"
+          //     });
+          // }
 
           // Reset Pomodoro timer if timeLeft is 0 before starting
            if (pomodoroTimeLeft <= 0) {
@@ -475,14 +477,16 @@ export default function Home() {
                   }
                    // Add XP during active work sessions only
                    if (pomodoroMode === 'work') {
-                       addXP(XP_PER_SECOND / 60); // Give XP per minute in Pomodoro
+                       // Add XP per *second* for Pomodoro work sessions
+                       addXP(XP_PER_SECOND); // Use the same rate as task timer for consistency
                    }
                   return prevTime - 1;
               });
           }, 1000);
       }
       setPomodoroIsActive((prev) => !prev); // Toggle active state
-  }, [pomodoroIsActive, pomodoroTimeLeft, pomodoroMode, pomodoroSessionsCompleted, pomodoroSettings, addXP, toast, switchPomodoroMode, activeTaskId, stopTaskTimer, resetTimer]);
+  }, [pomodoroIsActive, pomodoroTimeLeft, pomodoroMode, pomodoroSessionsCompleted, pomodoroSettings, addXP, toast, switchPomodoroMode, resetTimer]); // Removed activeTaskId, stopTaskTimer
+
 
   // --- TASK MANAGEMENT FUNCTIONS ---
   const addTask = useCallback((text: string, priority: TaskPriority) => {
@@ -913,3 +917,4 @@ export default function Home() {
     </SidebarProvider>
   );
 }
+
