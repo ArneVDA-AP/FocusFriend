@@ -236,7 +236,8 @@ export default function Home() {
     localStorage.setItem(LOCAL_STORAGE_KEY_LEVEL, level.toString());
     // Level up notification
     if (level > prevLevel) {
-       setTimeout(() => { // Ensure toast runs outside render
+       // Use setTimeout to ensure toast runs after the render cycle that updated the level
+       setTimeout(() => {
          toast({
           title: "Level Up!",
           description: `Congratulations! You've reached Level ${level}!`,
@@ -319,6 +320,7 @@ export default function Home() {
   const switchPomodoroMode = useCallback((nextMode: TimerMode) => {
     // "Wither" crystal if switching away from active work session
      if (pomodoroIsActive && pomodoroMode === 'work') {
+         // Use setTimeout to ensure toast runs after render cycle
          setTimeout(() => toast({
             title: "Focus Broken",
             description: "Your crystal withered...",
@@ -339,6 +341,7 @@ export default function Home() {
     const modeText = nextMode === 'work' ? 'Work' : nextMode === 'shortBreak' ? 'Short Break' : 'Long Break';
     const description = `Time for ${nextMode === 'work' ? 'focus!' : 'a break!'} (${formatTime(newDuration)})`;
 
+     // Use setTimeout for toast
      setTimeout(() => toast({
       title: `Mode: ${modeText}`,
       description: description,
@@ -370,6 +373,7 @@ export default function Home() {
       const notificationTitle = pomodoroMode === 'work' ? 'Work Session Complete!' : 'Break Over!';
       const notificationBody = pomodoroMode === 'work' ? 'Well done! Time for a break.' : 'Back to the grind!';
 
+       // Use setTimeout for toast
        setTimeout(() => toast({
         title: notificationTitle,
         description: notificationBody + (pomodoroMode === 'work' ? ' Your crystal grew!' : ''),
@@ -409,22 +413,26 @@ export default function Home() {
      const wasActive = pomodoroIsActive;
      setPomodoroIsActive(!wasActive);
      if (!wasActive && pomodoroMode === 'work' && pomodoroTimeLeft === pomodoroInitialDuration) {
+           // Use setTimeout for toast
           setTimeout(() => toast({ title: "Crystal Seed Planted", description: `Focus to make it grow!` , className: "osrs-box border-primary text-foreground"}), 0);
          if (pomodoroSettings.enableNotifications && Notification.permission === "default") {
              Notification.requestPermission();
          }
      }
      else if (!wasActive) {
+          // Use setTimeout for toast
          setTimeout(() => toast({ title: "Timer Resumed", description: `Continuing ${pomodoroMode === 'work' ? 'Focus' : 'Break'} for ${formatTime(pomodoroTimeLeft)}` , className: "osrs-box border-primary text-foreground"}), 0);
      } else {
          const pauseTitle = pomodoroMode === 'work' ? "Focus Paused" : "Break Paused";
          const pauseDesc = pomodoroMode === 'work' ? "Crystal growth paused..." : "";
+          // Use setTimeout for toast
          setTimeout(() => toast({ title: pauseTitle, description: pauseDesc, className: "osrs-box border-secondary text-foreground" }), 0);
      }
   };
 
   const resetPomodoroTimer = () => {
      if (pomodoroIsActive && pomodoroMode === 'work') {
+         // Use setTimeout for toast
          setTimeout(() => toast({
             title: "Focus Broken",
             description: "Your crystal withered...",
@@ -440,12 +448,14 @@ export default function Home() {
     setPomodoroTimeLeft(duration);
     setPomodoroInitialDuration(duration); // Reset initial duration
     const modeLabel = pomodoroMode === 'work' ? 'Focus Session' : pomodoroMode === 'shortBreak' ? 'Short Break' : 'Long Break';
+      // Use setTimeout for toast
      setTimeout(() => toast({ title: "Timer Reset", description: `${modeLabel} timer reset to ${formatTime(duration)}.`, className: "osrs-box border-secondary text-foreground" }), 0);
   };
 
   // --- Task Actions ---
    const addTask = (text: string, priority: TaskPriority) => {
       if (text.trim() === '') {
+           // Use setTimeout for toast
           setTimeout(() => toast({ title: "Task cannot be empty", variant: "destructive", className: "osrs-box border-destructive"}), 0);
           return;
       }
@@ -453,6 +463,7 @@ export default function Home() {
           id: Date.now().toString(), text, completed: false, studyTime: 0, isActive: false, priority, isEditing: false,
       };
       setTasks(prev => [newTask, ...prev]);
+       // Use setTimeout for toast
       setTimeout(() => toast({ title: "Task Added", description: `"${text}" assigned ${priority} priority.`, className: "osrs-box border-primary text-foreground" }), 0);
   };
 
@@ -477,6 +488,7 @@ export default function Home() {
       })
     );
 
+     // Use setTimeout for toast
     setTimeout(() => {
       const toastProps = completed
         ? { title: "Task Completed!", description: `+${XP_PER_TASK_COMPLETION} XP! "${taskText}"`, action: <CheckCircle className="text-accent" strokeWidth={1.5}/>, className: "osrs-box border-accent text-foreground"}
@@ -491,15 +503,18 @@ export default function Home() {
       stopTaskTimer();
     }
     setTasks(prev => prev.filter(task => task.id !== id));
+     // Use setTimeout for toast
     setTimeout(() => toast({ title: "Task Deleted", description: `"${taskToDelete?.text}" removed.`, variant: "destructive", className: "osrs-box border-destructive" }), 0);
   };
 
   const editTask = (id: string, newText: string) => {
      if (newText.trim() === '') {
+          // Use setTimeout for toast
          setTimeout(() => toast({ title: "Task cannot be empty", variant: "destructive", className: "osrs-box border-destructive"}), 0);
          return false; // Indicate failure
      }
      setTasks(prev => prev.map(task => task.id === id ? { ...task, text: newText, isEditing: false } : task));
+       // Use setTimeout for toast
       setTimeout(() => toast({ title: "Task Updated", className: "osrs-box border-primary text-foreground"}), 0);
       return true; // Indicate success
   };
@@ -525,6 +540,7 @@ export default function Home() {
                 setPomodoroInitialDuration(newDuration);
             }
        }
+        // Use setTimeout for toast
        setTimeout(() => toast({ title: "Settings Saved", className: "osrs-box border-primary text-foreground"}), 0);
    };
 
@@ -675,3 +691,4 @@ export default function Home() {
     </SidebarProvider>
   );
 }
+
