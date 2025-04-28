@@ -74,7 +74,7 @@ export default function PomodoroTimer() {
         setSettings(updatedSettings);
          // Reset timer if it's not active and mode/duration changed
          if (!isActive) {
-             const newDuration = (updatedSettings[`${mode}Duration` as keyof PomodoroSettings] || defaultSettings[`${mode}Duration` as keyof PomodoroSettings]) * 60;
+             const newDuration = getDuration(mode, updatedSettings); // Pass updated settings
              setTimeLeft(newDuration);
              initialDurationRef.current = newDuration; // Update initial duration ref
          }
@@ -121,9 +121,9 @@ export default function PomodoroTimer() {
     }, [grownCrystalsCount]);
 
 
-   const getDuration = useCallback((currentMode: TimerMode) => {
+   const getDuration = useCallback((currentMode: TimerMode, currentSettings = settings) => {
         const durationKey = `${currentMode}Duration` as keyof PomodoroSettings;
-        return (settings[durationKey] || defaultSettings[durationKey]) * 60; // Fallback to default
+        return (currentSettings[durationKey] || defaultSettings[durationKey]) * 60; // Fallback to default
    }, [settings]);
 
 
@@ -254,7 +254,7 @@ export default function PomodoroTimer() {
      setIsActive(!isActive);
      if (!wasActive && mode === 'work' && timeLeft === initialDurationRef.current) {
          // Starting a fresh work session
-          toast({ title: "Crystal Seed Planted", description: `Focus to make it grow!` , className: "osrs-box border-primary text-foreground"});
+          setTimeout(() => toast({ title: "Crystal Seed Planted", description: `Focus to make it grow!` , className: "osrs-box border-primary text-foreground"}), 0);
           // Request notification permission when timer starts if not granted/denied
          if (settings.enableNotifications && Notification.permission === "default") {
              Notification.requestPermission();
@@ -262,13 +262,13 @@ export default function PomodoroTimer() {
      }
      else if (!wasActive) {
          // Resuming timer
-         toast({ title: "Timer Resumed", description: `Continuing ${modeLabel} for ${formatTime(timeLeft)}` , className: "osrs-box border-primary text-foreground"});
+         setTimeout(() => toast({ title: "Timer Resumed", description: `Continuing ${modeLabel} for ${formatTime(timeLeft)}` , className: "osrs-box border-primary text-foreground"}), 0);
      } else {
          // Pausing timer
          if (mode === 'work') {
-            toast({ title: "Focus Paused", description: "Crystal growth paused...", className: "osrs-box border-secondary text-foreground" });
+            setTimeout(() => toast({ title: "Focus Paused", description: "Crystal growth paused...", className: "osrs-box border-secondary text-foreground" }), 0);
          } else {
-             toast({ title: "Break Paused", className: "osrs-box border-secondary text-foreground" });
+             setTimeout(() => toast({ title: "Break Paused", className: "osrs-box border-secondary text-foreground" }), 0);
          }
      }
   };
@@ -276,12 +276,12 @@ export default function PomodoroTimer() {
   const resetTimer = () => {
      if (isActive && mode === 'work') {
         // Resetting an active work session means the crystal "dies"
-         toast({
+         setTimeout(() => toast({
             title: "Focus Broken",
             description: "Your crystal withered...",
             variant: "destructive",
             className: "osrs-box border-destructive text-destructive-foreground",
-        });
+        }), 0);
      }
 
     setIsActive(false);
@@ -304,6 +304,17 @@ export default function PomodoroTimer() {
   const modeLabel = mode === 'work' ? 'Focus Session' : mode === 'shortBreak' ? 'Short Break' : 'Long Break';
   const isCrystalGrowing = mode === 'work' && isActive;
   const crystalDies = mode === 'work' && !isActive && timeLeft < durationForMode && timeLeft > 0; // Paused or stopped mid-session
+
+  // Calculate the crystal stage (0-24)
+  // Stage changes roughly every minute for a 25-minute timer
+  const calculateCrystalStage = (currentProgress: number): number => {
+    if (!isCrystalGrowing && progress !== 100) return 0; // Stage 0 if not growing or paused before completion
+    if (progress === 100 && !isCrystalGrowing) return 24; // Max stage if completed
+    const stage = Math.floor(currentProgress / (100 / 24)); // Calculate stage 0-23 based on progress
+    return Math.min(stage, 24); // Clamp to max stage 24
+  };
+
+  const crystalStage = calculateCrystalStage(progress);
 
   return (
     <Card className="osrs-box max-w-md mx-auto">
@@ -347,7 +358,7 @@ export default function PomodoroTimer() {
         <div className="relative w-48 h-48 sm:w-52 sm:h-52"> {/* Increased size slightly */}
             {/* Focus Crystal Visualization */}
              <FocusCrystal
-                progress={mode === 'work' ? progress : 0} // Only show progress during work
+                stage={mode === 'work' ? crystalStage : 0} // Pass stage (0-24) only for work mode
                 isGrowing={isCrystalGrowing}
                 isWithered={crystalDies} // Pass withered state
              />
