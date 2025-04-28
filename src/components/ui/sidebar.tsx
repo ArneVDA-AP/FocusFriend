@@ -535,62 +535,69 @@ const sidebarMenuButtonVariants = cva(
 )
 
 // Wrap SidebarMenuButton with React.memo to prevent unnecessary re-renders
-const SidebarMenuButton = React.memo(React.forwardRef<
-  HTMLButtonElement,
-  React.ComponentProps<"button"> & {
-    asChild?: boolean
-    isActive?: boolean
-    tooltip?: string | React.ReactNode // Changed type definition for tooltip
-  } & VariantProps<typeof sidebarMenuButtonVariants>
->(
-  (
-    {
-      asChild = false,
-      isActive = false,
-      variant = "default",
-      size = "default",
-      tooltip: tooltipProp, // Rename prop to avoid naming conflict
-      className,
-      ...props
-    },
-    ref
-  ) => {
-    const Comp = asChild ? Slot : "button"
-    const { isMobile, state } = useSidebar()
+// Memoize the component
+const SidebarMenuButton = React.memo(
+  React.forwardRef<
+    HTMLButtonElement,
+    React.ComponentProps<"button"> & {
+      asChild?: boolean
+      isActive?: boolean
+      tooltip?: string | React.ReactNode
+    } & VariantProps<typeof sidebarMenuButtonVariants>
+  >(
+    (
+      {
+        asChild = false,
+        isActive = false,
+        variant = "default",
+        size = "default",
+        tooltip: tooltipProp,
+        className,
+        children, // Explicitly accept children
+        onClick, // Explicitly accept onClick
+        ...restProps // Capture remaining props
+      },
+      ref
+    ) => {
+      const Comp = asChild ? Slot : "button"
+      const { isMobile, state } = useSidebar()
 
-    // Render the base button element directly
-    const buttonElement = (
-       <Comp
-         ref={ref}
-         data-sidebar="menu-button"
-         data-size={size}
-         data-active={isActive}
-         className={cn(sidebarMenuButtonVariants({ variant, size }), className)}
-         {...props}
-       />
-    );
+      // Render the base button element directly
+      const buttonElement = (
+         <Comp
+           ref={ref}
+           data-sidebar="menu-button"
+           data-size={size}
+           data-active={isActive}
+           onClick={onClick} // Pass onClick here
+           className={cn(sidebarMenuButtonVariants({ variant, size }), className)}
+           {...restProps} // Pass remaining props
+         >
+           {children} {/* Render children here */}
+         </Comp>
+      )
 
-    // Conditionally wrap with Tooltip if tooltipProp is provided
-    if (tooltipProp) {
-      return (
-        <Tooltip>
-          <TooltipTrigger asChild>{buttonElement}</TooltipTrigger>
-          <TooltipContent
-             side="right"
-             align="center"
-             hidden={state !== "collapsed" || isMobile}
-          >
-            {/* Render tooltip content directly */}
-            {tooltipProp}
-          </TooltipContent>
-        </Tooltip>
-      );
+      // Conditionally wrap with Tooltip if tooltipProp is provided
+      if (tooltipProp) {
+        return (
+          <Tooltip>
+            <TooltipTrigger asChild>{buttonElement}</TooltipTrigger>
+            <TooltipContent
+               side="right"
+               align="center"
+               hidden={state !== "collapsed" || isMobile}
+            >
+              {tooltipProp}
+            </TooltipContent>
+          </Tooltip>
+        )
+      }
+
+      // Return the button without tooltip if no tooltip prop is provided
+      return buttonElement
     }
-
-    // Return the button without tooltip if no tooltip prop is provided
-    return buttonElement;
-  }
-))
+  )
+)
 SidebarMenuButton.displayName = "SidebarMenuButton"
 
 
@@ -763,7 +770,3 @@ export {
   SidebarTrigger,
   useSidebar,
 }
-
-
-
-
