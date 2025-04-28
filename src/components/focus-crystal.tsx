@@ -1,6 +1,8 @@
+
 'use client';
 
 import { cn } from '@/lib/utils';
+import React, { useEffect } from 'react'; // Import useEffect from 'react'
 
 interface FocusCrystalProps {
     stage: number; // 0-24 represents growth stage
@@ -9,7 +11,6 @@ interface FocusCrystalProps {
 }
 
 // Generate 25 SVG paths representing crystal growth stages
-import React, { useEffect } from 'react'; // Import useEffect from 'react'
 const crystalStages: React.ReactNode[] = Array.from({ length: 25 }, (_, i) => {
     const progress = (i / 24) * 100; // Calculate progress percentage for stage i
     const baseSize = 3;
@@ -57,6 +58,11 @@ const witheredCrystal = (
 );
 
 const FocusCrystal: React.FC<FocusCrystalProps> = ({ stage, isGrowing, isWithered }) => {
+    // Moved useEffect to the top level of the functional component
+    useEffect(() => {
+        // Empty effect, kept structure if needed later
+    }, []);
+
     // Ensure stage is within bounds 0-24
     const currentStageIndex = Math.max(0, Math.min(24, Math.floor(stage)));
     const currentStageSvg = isWithered ? witheredCrystal : crystalStages[currentStageIndex];
@@ -73,63 +79,57 @@ const FocusCrystal: React.FC<FocusCrystalProps> = ({ stage, isGrowing, isWithere
 
     return (
         <>
-           {
-                useEffect(() => {
-            }, [])
-           }
+           {/* Removed invalid useEffect placement from here */}
+            <div className="relative w-full h-full flex items-center justify-center">
+                {/* Optional: Subtle background circle */}
+                <svg className="absolute inset-0 w-full h-full opacity-30" viewBox="0 0 100 100">
+                    <circle
+                        cx="50"
+                        cy="50"
+                        r="48"
+                        fill="url(#grad)"
+                        stroke="hsl(var(--border)/0.3)"
+                        strokeWidth="0.5"
+                    />
+                    <defs>
+                        <radialGradient id="grad" cx="50%" cy="50%" r="50%" fx="50%" fy="50%">
+                            <stop offset="0%" style={{ stopColor: 'hsl(var(--card)/0.5)', stopOpacity: 1 }} />
+                            <stop offset="100%" style={{ stopColor: 'hsl(var(--card)/0.1)', stopOpacity: 1 }} />
+                        </radialGradient>
+                    </defs>
+                </svg>
 
+                {/* Crystal SVG Container */}
+                <svg
+                    viewBox="0 0 100 100"
+                    className="relative z-10 w-[70%] h-[70%] overflow-visible" // Adjust size as needed
+                    style={{ filter: `drop-shadow(0 0 ${glowIntensity * 15}px hsl(var(--accent)/0.6))` }} // Slightly reduced glow size
+                >
+                    {/* Base/Ground */}
+                    <ellipse cx="50" cy="88" rx="18" ry="5" fill="hsl(var(--secondary)/0.8)" />
 
-        <div className="relative w-full h-full flex items-center justify-center">
-            {/* Optional: Subtle background circle */}
-            <svg className="absolute inset-0 w-full h-full opacity-30" viewBox="0 0 100 100">
-                <circle
-                    cx="50"
-                    cy="50"
-                    r="48"
-                    fill="url(#grad)"
-                    stroke="hsl(var(--border)/0.3)"
-                    strokeWidth="0.5"
-                />
-                <defs>
-                    <radialGradient id="grad" cx="50%" cy="50%" r="50%" fx="50%" fy="50%">
-                        <stop offset="0%" style={{ stopColor: 'hsl(var(--card)/0.5)', stopOpacity: 1 }} />
-                        <stop offset="100%" style={{ stopColor: 'hsl(var(--card)/0.1)', stopOpacity: 1 }} />
-                    </radialGradient>
-                </defs>
-            </svg>
+                     {/* Animated growing crystal */}
+                     <g style={{
+                         transition: 'opacity 0.5s ease-in-out', // Removed transform transition for stage-based updates
+                         opacity: isWithered ? 0.5 : 1,
+                     }}>
+                         {currentStageSvg}
+                    </g>
 
-            {/* Crystal SVG Container */}
-            <svg
-                viewBox="0 0 100 100"
-                className="relative z-10 w-[70%] h-[70%] overflow-visible" // Adjust size as needed
-                style={{ filter: `drop-shadow(0 0 ${glowIntensity * 15}px hsl(var(--accent)/0.6))` }} // Slightly reduced glow size
-            >
-                {/* Base/Ground */}
-                <ellipse cx="50" cy="88" rx="18" ry="5" fill="hsl(var(--secondary)/0.8)" />
-
-                 {/* Animated growing crystal */}
-                 <g style={{
-                     transition: 'opacity 0.5s ease-in-out', // Removed transform transition for stage-based updates
-                     opacity: isWithered ? 0.5 : 1,
-                 }}>
-                     {currentStageSvg}
-                </g>
-
-                 {/* Optional: Sparkle effect when growing */}
-                 {isGrowing && currentStageIndex > 2 && (currentStageIndex % 4 === 0) && ( // Simple sparkle condition based on stage
-                     <circle
-                         cx={45 + Math.random() * 10}
-                         cy={50 + Math.random() * 25} // More vertical range for sparkles
-                         r={0.4 + Math.random() * 0.8} // Slightly smaller sparkles
-                         fill="hsl(var(--accent-foreground)/0.8)"
-                         className="animate-ping opacity-70"
-                         style={{ animationDuration: '1.8s' }}
-                      />
-                 )}
-            </svg>
-        </div>
+                     {/* Optional: Sparkle effect when growing */}
+                     {isGrowing && currentStageIndex > 2 && (currentStageIndex % 4 === 0) && ( // Simple sparkle condition based on stage
+                         <circle
+                             cx={45 + Math.random() * 10}
+                             cy={50 + Math.random() * 25} // More vertical range for sparkles
+                             r={0.4 + Math.random() * 0.8} // Slightly smaller sparkles
+                             fill="hsl(var(--accent-foreground)/0.8)"
+                             className="animate-ping opacity-70"
+                             style={{ animationDuration: '1.8s' }}
+                          />
+                     )}
+                </svg>
+            </div>
         </>
-
     );
 };
 
