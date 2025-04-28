@@ -577,7 +577,11 @@ const SidebarMenuButton = React.memo(
          </Comp>
       )
 
+      // TEMPORARY: Remove Tooltip wrapping to prevent loop
+      return buttonElement;
+
       // Conditionally wrap with Tooltip if tooltipProp is provided
+      /*
       if (tooltipProp) {
         return (
           <Tooltip>
@@ -595,6 +599,7 @@ const SidebarMenuButton = React.memo(
 
       // Return the button without tooltip if no tooltip prop is provided
       return buttonElement
+      */
     }
   )
 )
