@@ -1,9 +1,9 @@
+
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Progress } from '@/components/ui/progress';
-import { Clock, ListChecks, Star, Trophy, TrendingUp, BarChartHorizontalBig, LineChart } from 'lucide-react';
+import { Clock, ListChecks, Star, Trophy, TrendingUp, BarChartHorizontalBig, Gem } from 'lucide-react'; // Added Gem
 import {
   ChartContainer,
   ChartTooltip,
@@ -25,6 +25,7 @@ const LOCAL_STORAGE_KEY_TASKS = 'studyQuestTasks';
 const LOCAL_STORAGE_KEY_XP = 'studyQuestXP';
 const LOCAL_STORAGE_KEY_LEVEL = 'studyQuestLevel';
 const LOCAL_STORAGE_KEY_POMODORO = 'studyQuestPomodoroSessions';
+const LOCAL_STORAGE_KEY_CRYSTALS = 'focusFriendGrownCrystals'; // Add crystal key
 const LEVEL_UP_BASE_XP = 100;
 const LEVEL_UP_FACTOR = 1.5;
 
@@ -53,6 +54,7 @@ export default function Overview() {
   const [currentXp, setCurrentXp] = useState(0);
   const [xpToNext, setXpToNext] = useState(LEVEL_UP_BASE_XP);
   const [pomodoroSessions, setPomodoroSessions] = useState(0);
+  const [grownCrystals, setGrownCrystals] = useState(0); // State for crystals
   const [taskData, setTaskData] = useState<Task[]>([]);
 
   useEffect(() => {
@@ -61,6 +63,7 @@ export default function Overview() {
         const storedXp = localStorage.getItem(LOCAL_STORAGE_KEY_XP);
         const storedLevel = localStorage.getItem(LOCAL_STORAGE_KEY_LEVEL);
         const storedPomodoro = localStorage.getItem(LOCAL_STORAGE_KEY_POMODORO);
+        const storedCrystals = localStorage.getItem(LOCAL_STORAGE_KEY_CRYSTALS); // Fetch crystals
 
         let studyTime = 0;
         let completed = 0;
@@ -73,14 +76,14 @@ export default function Overview() {
                     completed = tasks.filter(task => task.completed).length;
                     setTaskData(tasks);
                 } else {
-                    setTaskData([]); // Ensure taskData is an array if parsing fails or returns non-array
+                    setTaskData([]);
                 }
             } catch (e) {
                 console.error("Failed to parse tasks from localStorage", e);
-                 setTaskData([]); // Reset on error
+                 setTaskData([]);
             }
         } else {
-            setTaskData([]); // Reset if no tasks stored
+            setTaskData([]);
         }
 
 
@@ -90,23 +93,29 @@ export default function Overview() {
 
         setTotalStudyTime(studyTime);
         setTasksCompleted(completed);
-        setTotalTasks(tasks.length); // Use parsed tasks length
+        setTotalTasks(tasks.length);
         setCurrentLevel(level);
         setCurrentXp(xp);
         setXpToNext(xpNeeded);
         setPomodoroSessions(storedPomodoro ? parseInt(storedPomodoro, 10) : 0);
+        setGrownCrystals(storedCrystals ? parseInt(storedCrystals, 10) : 0); // Set crystals state
     };
 
     fetchData(); // Initial fetch
 
     const handleStorageUpdate = (event: Event) => {
-       // More specific check for custom events or broad check for StorageEvent
+       const relevantKeys = [
+            LOCAL_STORAGE_KEY_TASKS,
+            LOCAL_STORAGE_KEY_LEVEL,
+            LOCAL_STORAGE_KEY_POMODORO,
+            LOCAL_STORAGE_KEY_XP,
+            LOCAL_STORAGE_KEY_CRYSTALS, // Listen for crystal updates
+        ];
        if (event instanceof StorageEvent) {
-           // Check if the key is relevant
-           if ([LOCAL_STORAGE_KEY_TASKS, LOCAL_STORAGE_KEY_LEVEL, LOCAL_STORAGE_KEY_POMODORO, LOCAL_STORAGE_KEY_XP].includes(event.key || '')) {
+           if (relevantKeys.includes(event.key || '')) {
                fetchData();
            }
-       } else {
+       } else if (event instanceof CustomEvent) {
            // Assume custom events are relevant and refetch
            fetchData();
        }
@@ -116,7 +125,7 @@ export default function Overview() {
     window.addEventListener('storage', handleStorageUpdate);
     window.addEventListener('xpUpdate', handleStorageUpdate);
     window.addEventListener('taskUpdate', handleStorageUpdate);
-    window.addEventListener('pomodoroUpdate', handleStorageUpdate);
+    window.addEventListener('pomodoroUpdate', handleStorageUpdate); // This also updates crystals
 
     return () => {
       window.removeEventListener('storage', handleStorageUpdate);
@@ -158,7 +167,7 @@ export default function Overview() {
 
   return (
     <div className="space-y-4">
-       <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
+       <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5"> {/* Adjusted grid cols for 5 items */}
             {/* Apply osrs-box to each stat card */}
             <Card className="osrs-box">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 pt-2 px-3">
@@ -202,6 +211,17 @@ export default function Overview() {
                 <CardContent className="px-3 pb-2">
                     <div className="text-xl font-bold">{pomodoroSessions}</div>
                     <p className="text-xs text-muted-foreground">Focus intervals</p>
+                </CardContent>
+            </Card>
+             {/* Grown Crystals Card */}
+            <Card className="osrs-box">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 pt-2 px-3">
+                    <CardTitle className="text-xs font-medium uppercase tracking-wider">Grown Crystals</CardTitle>
+                    <Gem className="h-4 w-4 text-muted-foreground" strokeWidth={1.5}/>
+                </CardHeader>
+                <CardContent className="px-3 pb-2">
+                    <div className="text-xl font-bold">{grownCrystals}</div>
+                    <p className="text-xs text-muted-foreground">Focus rewards</p>
                 </CardContent>
             </Card>
        </div>

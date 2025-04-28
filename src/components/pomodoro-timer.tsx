@@ -4,14 +4,16 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Play, Pause, RotateCw, Coffee, BookOpen } from 'lucide-react';
+import { Play, Pause, RotateCw, Coffee, BookOpen, Gem } from 'lucide-react'; // Added Gem icon
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
-import { PomodoroSettings, FOCUSFRIEND_SETTINGS_KEY } from '@/components/settings'; // Import settings interface and key
+import { PomodoroSettings, FOCUSFRIEND_SETTINGS_KEY } from '@/components/settings';
+import FocusCrystal from '@/components/focus-crystal'; // Import the new component
 
 type TimerMode = 'work' | 'shortBreak' | 'longBreak';
 
 const LOCAL_STORAGE_KEY_POMODORO_SESSIONS = 'focusFriendPomodoroSessions';
+const LOCAL_STORAGE_KEY_GROWN_CRYSTALS = 'focusFriendGrownCrystals'; // Key for grown crystals
 
 // Default values (will be overridden by loaded settings)
 const defaultSettings: PomodoroSettings = {
@@ -29,10 +31,12 @@ export default function PomodoroTimer() {
   const [timeLeft, setTimeLeft] = useState<number>(defaultSettings.workDuration * 60);
   const [isActive, setIsActive] = useState<boolean>(false);
   const [sessionsCompleted, setSessionsCompleted] = useState<number>(0);
+  const [grownCrystalsCount, setGrownCrystalsCount] = useState<number>(0); // State for grown crystals
   const { toast } = useToast();
   const timerIntervalRef = useRef<NodeJS.Timeout | null>(null); // Use ref for interval
+  const initialDurationRef = useRef<number>(defaultSettings.workDuration * 60); // Store initial duration for progress
 
-  // Load settings and sessions on mount
+  // Load settings, sessions, and grown crystals on mount
   useEffect(() => {
     const storedSettings = localStorage.getItem(FOCUSFRIEND_SETTINGS_KEY);
     let currentSettings = defaultSettings;
@@ -44,11 +48,18 @@ export default function PomodoroTimer() {
       }
     }
     setSettings(currentSettings);
-    setTimeLeft(currentSettings.workDuration * 60); // Initialize timer with loaded duration
+    const initialTime = currentSettings.workDuration * 60;
+    setTimeLeft(initialTime);
+    initialDurationRef.current = initialTime;
 
     const storedSessions = localStorage.getItem(LOCAL_STORAGE_KEY_POMODORO_SESSIONS);
     if (storedSessions) {
       setSessionsCompleted(parseInt(storedSessions, 10));
+    }
+
+    const storedCrystals = localStorage.getItem(LOCAL_STORAGE_KEY_GROWN_CRYSTALS); // Load grown crystals
+    if (storedCrystals) {
+        setGrownCrystalsCount(parseInt(storedCrystals, 10));
     }
 
     // Listen for settings updates from the settings page
@@ -63,11 +74,13 @@ export default function PomodoroTimer() {
         setSettings(updatedSettings);
          // Reset timer if it's not active and mode/duration changed
          if (!isActive) {
-             setTimeLeft(updatedSettings[`${mode}Duration` as keyof PomodoroSettings] * 60);
+             const newDuration = (updatedSettings[`${mode}Duration` as keyof PomodoroSettings] || defaultSettings[`${mode}Duration` as keyof PomodoroSettings]) * 60;
+             setTimeLeft(newDuration);
+             initialDurationRef.current = newDuration; // Update initial duration ref
          }
     };
 
-     window.addEventListener('storage', (event) => {
+     const handleStorageChange = (event: StorageEvent) => {
         if (event.key === FOCUSFRIEND_SETTINGS_KEY) {
             handleSettingsUpdate();
         }
@@ -75,28 +88,40 @@ export default function PomodoroTimer() {
              const updatedSessions = localStorage.getItem(LOCAL_STORAGE_KEY_POMODORO_SESSIONS);
              setSessionsCompleted(updatedSessions ? parseInt(updatedSessions, 10) : 0);
          }
-     });
+          if (event.key === LOCAL_STORAGE_KEY_GROWN_CRYSTALS) { // Listen for crystal changes
+              const updatedCrystals = localStorage.getItem(LOCAL_STORAGE_KEY_GROWN_CRYSTALS);
+              setGrownCrystalsCount(updatedCrystals ? parseInt(updatedCrystals, 10) : 0);
+          }
+     };
+
+     window.addEventListener('storage', handleStorageChange);
      // Use custom event if storage event is not reliable across tabs/windows for your setup
      window.addEventListener('settingsUpdate', handleSettingsUpdate);
 
 
     return () => {
+         window.removeEventListener('storage', handleStorageChange);
          window.removeEventListener('settingsUpdate', handleSettingsUpdate);
-         // Clean up storage listener if added above
     };
-
-  }, [isActive, mode]); // Add isActive and mode dependency to reset timer correctly on settings change
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Removed isActive and mode dependency as reset logic is handled inside the listener
 
   // Save sessions completed count
    useEffect(() => {
        localStorage.setItem(LOCAL_STORAGE_KEY_POMODORO_SESSIONS, sessionsCompleted.toString());
-        // Dispatch custom event for cross-component updates if needed
-        // window.dispatchEvent(new CustomEvent('pomodoroUpdate'));
+       // Dispatch custom event for cross-component updates (e.g., achievements)
+       window.dispatchEvent(new CustomEvent('pomodoroUpdate'));
    }, [sessionsCompleted]);
+
+    // Save grown crystals count
+    useEffect(() => {
+        localStorage.setItem(LOCAL_STORAGE_KEY_GROWN_CRYSTALS, grownCrystalsCount.toString());
+        // Dispatch event if other components need to know about crystal count
+        // window.dispatchEvent(new CustomEvent('crystalUpdate'));
+    }, [grownCrystalsCount]);
 
 
    const getDuration = useCallback((currentMode: TimerMode) => {
-        // Use settings directly, ensure property name matches
         const durationKey = `${currentMode}Duration` as keyof PomodoroSettings;
         return (settings[durationKey] || defaultSettings[durationKey]) * 60; // Fallback to default
    }, [settings]);
@@ -120,6 +145,16 @@ export default function PomodoroTimer() {
   }, [settings.enableNotifications]);
 
   const switchMode = useCallback((nextMode: TimerMode) => {
+    if (isActive && mode === 'work') {
+        // If switching away from an active work session, the crystal "dies" (doesn't count)
+        toast({
+            title: "Focus Broken",
+            description: "Your crystal withered...",
+            variant: "destructive",
+            className: "osrs-box border-destructive text-destructive-foreground",
+        });
+    }
+
     setIsActive(false);
     if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
     timerIntervalRef.current = null;
@@ -127,6 +162,7 @@ export default function PomodoroTimer() {
     setMode(nextMode);
     const newDuration = getDuration(nextMode);
     setTimeLeft(newDuration);
+    initialDurationRef.current = newDuration; // Update initial duration for the new mode
 
     const modeText = nextMode === 'work' ? 'Work' : nextMode === 'shortBreak' ? 'Short Break' : 'Long Break';
     const description = `Time for ${nextMode === 'work' ? 'focus!' : 'a break!'} (${formatTime(newDuration)})`;
@@ -143,11 +179,14 @@ export default function PomodoroTimer() {
      showNotification(`Switched to ${modeText}`, description);
 
     // Handle autostart
-     if (settings.enableAutostart) {
+     if (settings.enableAutostart && nextMode !== 'work') { // Usually autostart breaks, not work
          setIsActive(true);
+     } else if (settings.enableAutostart && nextMode === 'work' && sessionsCompleted > 0) {
+         // Only autostart work if it's not the very first session (or based on preference)
+          setIsActive(true);
      }
 
-  }, [getDuration, toast, showNotification, settings.enableAutostart]);
+  }, [getDuration, toast, showNotification, settings.enableAutostart, sessionsCompleted, isActive, mode]);
 
 
   useEffect(() => {
@@ -170,8 +209,9 @@ export default function PomodoroTimer() {
        // Toast
        setTimeout(() => toast({
         title: notificationTitle,
-        description: notificationBody,
+        description: notificationBody + (mode === 'work' ? ' Your crystal grew!' : ''),
         variant: 'default',
+         action: mode === 'work' ? <Gem className="text-accent" strokeWidth={1.5} /> : undefined,
         className: "osrs-box border-accent text-foreground", // OSRS style toast
       }), 0);
 
@@ -182,6 +222,7 @@ export default function PomodoroTimer() {
       if (mode === 'work') {
         const newSessionsCompleted = sessionsCompleted + 1;
         setSessionsCompleted(newSessionsCompleted);
+        setGrownCrystalsCount(prev => prev + 1); // Increment grown crystals count
          if (newSessionsCompleted % settings.sessionsBeforeLongBreak === 0) {
           switchMode('longBreak');
         } else {
@@ -196,8 +237,7 @@ export default function PomodoroTimer() {
         timerIntervalRef.current = null;
     }
      // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isActive, timeLeft, settings.sessionsBeforeLongBreak]); // Add switchMode dependency if it changes, ensure it's memoized
-
+  }, [isActive, timeLeft, settings.sessionsBeforeLongBreak, switchMode]); // Added switchMode dependency
 
   // Cleanup interval on unmount
   useEffect(() => {
@@ -212,26 +252,45 @@ export default function PomodoroTimer() {
   const toggleTimer = () => {
      const wasActive = isActive;
      setIsActive(!isActive);
-     setTimeout(() => {
-         if (!wasActive) {
-            toast({ title: "Timer Started", description: `Focus for ${formatTime(timeLeft)}!` , className: "osrs-box border-primary text-foreground"});
-             // Request notification permission when timer starts if not granted/denied
-             if (settings.enableNotifications && Notification.permission === "default") {
-                 Notification.requestPermission();
-             }
-         } else {
-            toast({ title: "Timer Paused", className: "osrs-box border-secondary text-foreground" });
+     if (!wasActive && mode === 'work' && timeLeft === initialDurationRef.current) {
+         // Starting a fresh work session
+          toast({ title: "Crystal Seed Planted", description: `Focus to make it grow!` , className: "osrs-box border-primary text-foreground"});
+          // Request notification permission when timer starts if not granted/denied
+         if (settings.enableNotifications && Notification.permission === "default") {
+             Notification.requestPermission();
          }
-     }, 0);
+     }
+     else if (!wasActive) {
+         // Resuming timer
+         toast({ title: "Timer Resumed", description: `Continuing ${modeLabel} for ${formatTime(timeLeft)}` , className: "osrs-box border-primary text-foreground"});
+     } else {
+         // Pausing timer
+         if (mode === 'work') {
+            toast({ title: "Focus Paused", description: "Crystal growth paused...", className: "osrs-box border-secondary text-foreground" });
+         } else {
+             toast({ title: "Break Paused", className: "osrs-box border-secondary text-foreground" });
+         }
+     }
   };
 
   const resetTimer = () => {
+     if (isActive && mode === 'work') {
+        // Resetting an active work session means the crystal "dies"
+         toast({
+            title: "Focus Broken",
+            description: "Your crystal withered...",
+            variant: "destructive",
+            className: "osrs-box border-destructive text-destructive-foreground",
+        });
+     }
+
     setIsActive(false);
      if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
      timerIntervalRef.current = null;
     const duration = getDuration(mode);
     setTimeLeft(duration);
-     setTimeout(() => toast({ title: "Timer Reset", description: `${mode === 'work' ? 'Work' : mode === 'shortBreak' ? 'Short Break' : 'Long Break'} timer reset to ${formatTime(duration)}.`, className: "osrs-box border-secondary text-foreground" }), 0);
+    initialDurationRef.current = duration; // Update initial duration on reset
+     setTimeout(() => toast({ title: "Timer Reset", description: `${modeLabel} timer reset to ${formatTime(duration)}.`, className: "osrs-box border-secondary text-foreground" }), 0);
   };
 
   const formatTime = (seconds: number) => {
@@ -240,15 +299,17 @@ export default function PomodoroTimer() {
     return `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
   };
 
-  const durationForMode = getDuration(mode);
+  const durationForMode = initialDurationRef.current; // Use ref for consistent progress calculation
   const progress = durationForMode > 0 ? ((durationForMode - timeLeft) / durationForMode) * 100 : 0;
   const modeLabel = mode === 'work' ? 'Focus Session' : mode === 'shortBreak' ? 'Short Break' : 'Long Break';
+  const isCrystalGrowing = mode === 'work' && isActive;
+  const crystalDies = mode === 'work' && !isActive && timeLeft < durationForMode && timeLeft > 0; // Paused or stopped mid-session
 
   return (
     <Card className="osrs-box max-w-md mx-auto">
       <CardHeader className="pb-3 text-center">
         <CardTitle className="text-lg font-semibold">Pomodoro Timer</CardTitle>
-        <CardDescription className="text-xs">Stay focused and take regular breaks.</CardDescription>
+        <CardDescription className="text-xs">Grow Focus Crystals by completing work sessions.</CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col items-center space-y-5 pt-2 pb-4">
         {/* Mode Buttons */}
@@ -282,52 +343,26 @@ export default function PomodoroTimer() {
           </Button>
         </div>
 
-        {/* Timer Circle */}
-        <div className="relative w-40 h-40 sm:w-44 sm:h-44">
-           <svg className="absolute inset-0 w-full h-full" viewBox="0 0 100 100">
-            {/* Background circle - OSRS style */}
-            <circle
-              className="text-black/30 stroke-current"
-              strokeWidth="6"
-              cx="50"
-              cy="50"
-              r="45"
-              fill="hsl(var(--card))" // Use card background
-            />
-             <circle // Inner bevel shadow
-              className="text-black/20 stroke-current"
-              strokeWidth="1"
-              cx="50"
-              cy="50"
-              r="42"
-              fill="transparent"
-            />
-             <circle // Inner highlight
-              className="text-white/10 stroke-current"
-              strokeWidth="1"
-              cx="50"
-              cy="50"
-              r="48"
-              fill="transparent"
-            />
-             {/* Progress circle */}
-            <circle
-              className="text-accent stroke-current"
-              strokeWidth="4" // Slightly thinner progress bar
-              cx="50"
-              cy="50"
-              r="45"
-              fill="transparent"
-              strokeDasharray={`${2 * Math.PI * 45}`}
-              strokeDashoffset={`${(2 * Math.PI * 45) * (1 - progress / 100)}`}
-              transform="rotate(-90 50 50)"
-              style={{ transition: 'stroke-dashoffset 0.3s linear' }}
-              strokeLinecap="butt" // Sharp ends
-            />
-          </svg>
-           <div className="absolute inset-0 flex flex-col items-center justify-center">
-            <span className="text-4xl sm:text-4xl font-bold tabular-nums text-foreground tracking-tighter">{formatTime(timeLeft)}</span>
-             <span className="text-xs text-muted-foreground mt-1 capitalize">
+        {/* Timer and Crystal Area */}
+        <div className="relative w-48 h-48 sm:w-52 sm:h-52"> {/* Increased size slightly */}
+            {/* Focus Crystal Visualization */}
+             <FocusCrystal
+                progress={mode === 'work' ? progress : 0} // Only show progress during work
+                isGrowing={isCrystalGrowing}
+                isWithered={crystalDies} // Pass withered state
+             />
+
+           {/* Timer Text Overlay */}
+           <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+             <span className={cn(
+                 "text-4xl sm:text-4xl font-bold tabular-nums text-foreground tracking-tighter",
+                 "drop-shadow-[1px_1px_0_rgba(0,0,0,0.7)]" // Add shadow to text for readability over crystal
+                 )}>
+                 {formatTime(timeLeft)}
+             </span>
+             <span className={cn(
+                 "text-xs text-muted-foreground mt-1 capitalize px-1.5 py-0.5 rounded bg-background/60 backdrop-blur-sm",
+                 )}>
                 {modeLabel}
              </span>
           </div>
@@ -358,10 +393,15 @@ export default function PomodoroTimer() {
           </Button>
         </div>
 
-         {/* Session Counter */}
-        <p className="text-xs text-muted-foreground pt-1">
-          Completed Sessions: <span className="font-semibold text-foreground">{sessionsCompleted}</span>
-        </p>
+         {/* Session & Crystal Counter */}
+        <div className="flex gap-4 text-xs text-muted-foreground pt-1">
+            <span>
+                Completed Sessions: <span className="font-semibold text-foreground">{sessionsCompleted}</span>
+            </span>
+            <span className="flex items-center gap-0.5">
+               <Gem size={12} className="text-accent"/> Grown Crystals: <span className="font-semibold text-foreground">{grownCrystalsCount}</span>
+            </span>
+        </div>
       </CardContent>
 
     </Card>
