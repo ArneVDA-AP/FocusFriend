@@ -64,7 +64,7 @@ export default function Settings() {
   };
 
   return (
-    <Card className="osrs-box max-w-4xl mx-auto"> {/* Increased max-width */}
+    <Card className="osrs-box max-w-5xl mx-auto"> {/* Increased max-width */}
       <CardHeader className="pb-4 pt-3 px-4">
         <CardTitle className="text-base font-semibold">Pomodoro Timer Settings</CardTitle>
         <CardDescription className="text-xs">Customize your focus sessions and breaks.</CardDescription>
