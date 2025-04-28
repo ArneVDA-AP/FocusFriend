@@ -1,7 +1,6 @@
-
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
@@ -19,52 +18,40 @@ export interface PomodoroSettings {
 
 export const FOCUSFRIEND_SETTINGS_KEY = 'focusFriendSettings';
 
-const defaultSettings: PomodoroSettings = {
-  workDuration: 25,
-  shortBreakDuration: 5,
-  longBreakDuration: 15,
-  sessionsBeforeLongBreak: 4,
-  enableNotifications: true,
-  enableAutostart: false,
-};
+interface SettingsProps {
+    settings: PomodoroSettings;
+    onSettingsChange: (newSettings: PomodoroSettings) => void;
+}
 
-export default function Settings() {
-  const [settings, setSettings] = useState<PomodoroSettings>(defaultSettings);
 
-  // Load settings from localStorage on mount
+export default function Settings({ settings: initialSettings, onSettingsChange }: SettingsProps) {
+  // Use local state to manage form inputs immediately, debouncing or updating parent on change
+  const [localSettings, setLocalSettings] = useState<PomodoroSettings>(initialSettings);
+
+  // Sync local state if the prop changes from the parent
   useEffect(() => {
-    const storedSettings = localStorage.getItem(FOCUSFRIEND_SETTINGS_KEY);
-    if (storedSettings) {
-      try {
-        const parsedSettings = JSON.parse(storedSettings);
-        // Merge with defaults to ensure all keys are present
-        setSettings({ ...defaultSettings, ...parsedSettings });
-      } catch (error) {
-        console.error("Failed to parse settings from localStorage", error);
-        setSettings(defaultSettings); // Reset to defaults on error
-      }
-    } else {
-        setSettings(defaultSettings); // Set defaults if nothing is stored
-    }
-  }, []);
+    setLocalSettings(initialSettings);
+  }, [initialSettings]);
 
-  // Save settings to localStorage whenever they change
-  useEffect(() => {
-    localStorage.setItem(FOCUSFRIEND_SETTINGS_KEY, JSON.stringify(settings));
-     // Optional: Dispatch an event if live updates are needed in other components
-     window.dispatchEvent(new CustomEvent('settingsUpdate'));
-  }, [settings]);
+
+  // Callback to update local state and notify parent
+  const handleChange = useCallback(<K extends keyof PomodoroSettings>(key: K, value: PomodoroSettings[K]) => {
+    const newSettings = { ...localSettings, [key]: value };
+    setLocalSettings(newSettings);
+    onSettingsChange(newSettings); // Notify parent immediately or use debounce/save button
+  }, [localSettings, onSettingsChange]);
 
   const handleSliderChange = (key: keyof PomodoroSettings, value: number[]) => {
-    setSettings((prev) => ({ ...prev, [key]: value[0] }));
+     handleChange(key, value[0]);
   };
 
   const handleSwitchChange = (key: keyof PomodoroSettings, checked: boolean) => {
-    setSettings((prev) => ({ ...prev, [key]: checked }));
+     handleChange(key, checked);
   };
 
+
   return (
-    <Card className="osrs-box mx-auto"> {/* Removed max-w-5xl */}
+    <Card className="osrs-box mx-auto">
       <CardHeader className="pb-4 pt-3 px-4">
         <CardTitle className="text-base font-semibold">Pomodoro Timer Settings</CardTitle>
         <CardDescription className="text-xs">Customize your focus sessions and breaks.</CardDescription>
@@ -74,14 +61,14 @@ export default function Settings() {
         <div className="space-y-2">
           <Label htmlFor="workDuration" className="flex justify-between items-center text-sm">
             <span>Work Duration</span>
-            <span className="text-muted-foreground">{settings.workDuration} min</span>
+            <span className="text-muted-foreground">{localSettings.workDuration} min</span>
           </Label>
           <Slider
             id="workDuration"
             min={5}
             max={60}
             step={5}
-            value={[settings.workDuration]}
+            value={[localSettings.workDuration]}
             onValueChange={(value) => handleSliderChange('workDuration', value)}
             aria-label="Work Duration"
           />
@@ -95,14 +82,14 @@ export default function Settings() {
         <div className="space-y-2">
           <Label htmlFor="shortBreakDuration" className="flex justify-between items-center text-sm">
             <span>Short Break Duration</span>
-            <span className="text-muted-foreground">{settings.shortBreakDuration} min</span>
+            <span className="text-muted-foreground">{localSettings.shortBreakDuration} min</span>
           </Label>
           <Slider
             id="shortBreakDuration"
             min={1}
             max={30}
             step={1}
-            value={[settings.shortBreakDuration]}
+            value={[localSettings.shortBreakDuration]}
             onValueChange={(value) => handleSliderChange('shortBreakDuration', value)}
             aria-label="Short Break Duration"
           />
@@ -116,14 +103,14 @@ export default function Settings() {
         <div className="space-y-2">
           <Label htmlFor="longBreakDuration" className="flex justify-between items-center text-sm">
             <span>Long Break Duration</span>
-            <span className="text-muted-foreground">{settings.longBreakDuration} min</span>
+            <span className="text-muted-foreground">{localSettings.longBreakDuration} min</span>
           </Label>
           <Slider
             id="longBreakDuration"
             min={5}
             max={45}
             step={5}
-            value={[settings.longBreakDuration]}
+            value={[localSettings.longBreakDuration]}
             onValueChange={(value) => handleSliderChange('longBreakDuration', value)}
             aria-label="Long Break Duration"
           />
@@ -133,18 +120,18 @@ export default function Settings() {
           </div>
         </div>
 
-         {/* Sessions Before Long Break (Rounds) */}
+         {/* Sessions Before Long Break */}
         <div className="space-y-2">
           <Label htmlFor="sessionsBeforeLongBreak" className="flex justify-between items-center text-sm">
             <span>Sessions Before Long Break</span>
-            <span className="text-muted-foreground">{settings.sessionsBeforeLongBreak} sessions</span>
+            <span className="text-muted-foreground">{localSettings.sessionsBeforeLongBreak} sessions</span>
           </Label>
           <Slider
             id="sessionsBeforeLongBreak"
             min={2}
-            max={12} // Adjusted max rounds
+            max={12}
             step={1}
-            value={[settings.sessionsBeforeLongBreak]}
+            value={[localSettings.sessionsBeforeLongBreak]}
             onValueChange={(value) => handleSliderChange('sessionsBeforeLongBreak', value)}
             aria-label="Sessions Before Long Break"
           />
@@ -161,7 +148,7 @@ export default function Settings() {
           </Label>
           <Switch
             id="enableNotifications"
-            checked={settings.enableNotifications}
+            checked={localSettings.enableNotifications}
             onCheckedChange={(checked) => handleSwitchChange('enableNotifications', checked)}
             aria-label="Enable Notifications"
           />
@@ -174,7 +161,7 @@ export default function Settings() {
           </Label>
           <Switch
             id="enableAutostart"
-            checked={settings.enableAutostart}
+            checked={localSettings.enableAutostart}
             onCheckedChange={(checked) => handleSwitchChange('enableAutostart', checked)}
             aria-label="Autostart Timers"
           />

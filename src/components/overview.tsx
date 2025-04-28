@@ -1,35 +1,25 @@
-
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Clock, ListChecks, Star, Trophy, TrendingUp, BarChartHorizontalBig, Gem } from 'lucide-react'; // Added Gem
+import { Clock, ListChecks, Star, Trophy, TrendingUp, BarChartHorizontalBig, Gem } from 'lucide-react';
 import {
   ChartContainer,
-  ChartTooltip,
   ChartTooltipContent,
-} from "@/components/ui/chart"
-import { Bar, BarChart, CartesianGrid, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer } from "recharts"
-import { cn } from '@/lib/utils'; // Import cn utility
+} from "@/components/ui/chart";
+import { Bar, BarChart, CartesianGrid, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer } from "recharts";
+import { cn } from '@/lib/utils';
+import type { Task } from './study-tracker'; // Import Task type
+import type { UserStats } from './achievements'; // Import UserStats type
 
-interface Task {
-  id: string;
-  text: string;
-  completed: boolean;
-  studyTime: number; // in seconds
-  isActive: boolean;
-  priority?: 'low' | 'medium' | 'high';
+interface OverviewProps {
+    stats: UserStats;
+    xp: number;
+    xpToNextLevel: number;
+    tasks: Task[]; // Pass full tasks array
 }
 
-const LOCAL_STORAGE_KEY_TASKS = 'studyQuestTasks';
-const LOCAL_STORAGE_KEY_XP = 'studyQuestXP';
-const LOCAL_STORAGE_KEY_LEVEL = 'studyQuestLevel';
-const LOCAL_STORAGE_KEY_POMODORO = 'studyQuestPomodoroSessions';
-const LOCAL_STORAGE_KEY_CRYSTALS = 'focusFriendGrownCrystals'; // Add crystal key
-const LEVEL_UP_BASE_XP = 100;
-const LEVEL_UP_FACTOR = 1.5;
-
-const formatTime = (totalSeconds: number) => {
+const formatTime = (totalSeconds: number): string => {
     const hours = Math.floor(totalSeconds / 3600);
     const minutes = Math.floor((totalSeconds % 3600) / 60);
     const seconds = totalSeconds % 60;
@@ -37,138 +27,51 @@ const formatTime = (totalSeconds: number) => {
     if (hours > 0) parts.push(`${hours}h`);
     if (minutes > 0) parts.push(`${minutes}m`);
     if (seconds > 0 || parts.length === 0) parts.push(`${seconds}s`);
-    return parts.join(' ') || '0s'; // Ensure '0s' if no parts
+    return parts.join(' ') || '0s';
 };
 
-
-const calculateXpToNextLevel = (currentLevel: number) => {
-    return Math.floor(LEVEL_UP_BASE_XP * Math.pow(LEVEL_UP_FACTOR, currentLevel - 1));
-};
-
-
-export default function Overview() {
-  const [totalStudyTime, setTotalStudyTime] = useState(0);
-  const [tasksCompleted, setTasksCompleted] = useState(0);
-  const [totalTasks, setTotalTasks] = useState(0);
-  const [currentLevel, setCurrentLevel] = useState(1);
-  const [currentXp, setCurrentXp] = useState(0);
-  const [xpToNext, setXpToNext] = useState(LEVEL_UP_BASE_XP);
-  const [pomodoroSessions, setPomodoroSessions] = useState(0);
-  const [grownCrystals, setGrownCrystals] = useState(0); // State for crystals
-  const [taskData, setTaskData] = useState<Task[]>([]);
-
-  useEffect(() => {
-    const fetchData = () => {
-        const storedTasks = localStorage.getItem(LOCAL_STORAGE_KEY_TASKS);
-        const storedXp = localStorage.getItem(LOCAL_STORAGE_KEY_XP);
-        const storedLevel = localStorage.getItem(LOCAL_STORAGE_KEY_LEVEL);
-        const storedPomodoro = localStorage.getItem(LOCAL_STORAGE_KEY_POMODORO);
-        const storedCrystals = localStorage.getItem(LOCAL_STORAGE_KEY_CRYSTALS); // Fetch crystals
-
-        let studyTime = 0;
-        let completed = 0;
-        let tasks: Task[] = [];
-        if (storedTasks) {
-            try {
-                tasks = JSON.parse(storedTasks);
-                if (Array.isArray(tasks)) {
-                    studyTime = tasks.reduce((sum, task) => sum + (task.studyTime || 0), 0);
-                    completed = tasks.filter(task => task.completed).length;
-                    setTaskData(tasks);
-                } else {
-                    setTaskData([]);
-                }
-            } catch (e) {
-                console.error("Failed to parse tasks from localStorage", e);
-                 setTaskData([]);
-            }
-        } else {
-            setTaskData([]);
-        }
+// OSRS Progress Bar Component (Internal or imported)
+const OsrsProgressBar = ({ value, label, colorClass = "bg-primary" }: { value: number; label: string; colorClass?: string }) => (
+    <div className="w-full h-2 bg-black/40 rounded-full overflow-hidden border border-black/50 shadow-[inset_0_1px_1px_rgba(0,0,0,0.5)]">
+        <div
+            className={cn("h-full transition-all duration-300 ease-out rounded-full border-r border-black/30", colorClass)}
+            style={{ width: `${value}%` }}
+            role="progressbar"
+            aria-valuenow={value}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-label={label}
+        />
+    </div>
+);
 
 
-        const level = storedLevel ? parseInt(storedLevel, 10) : 1;
-        const xp = storedXp ? parseFloat(storedXp) : 0;
-        const xpNeeded = calculateXpToNextLevel(level);
+export default function Overview({ stats, xp, xpToNextLevel, tasks }: OverviewProps) {
 
-        setTotalStudyTime(studyTime);
-        setTasksCompleted(completed);
-        setTotalTasks(tasks.length);
-        setCurrentLevel(level);
-        setCurrentXp(xp);
-        setXpToNext(xpNeeded);
-        setPomodoroSessions(storedPomodoro ? parseInt(storedPomodoro, 10) : 0);
-        setGrownCrystals(storedCrystals ? parseInt(storedCrystals, 10) : 0); // Set crystals state
-    };
+  const { tasksCompleted, totalStudyTime, level, pomodoroSessions, grownCrystals } = stats;
+  const totalTasks = tasks.length; // Calculate total tasks from the passed array
 
-    fetchData(); // Initial fetch
-
-    const handleStorageUpdate = (event: Event) => {
-       const relevantKeys = [
-            LOCAL_STORAGE_KEY_TASKS,
-            LOCAL_STORAGE_KEY_LEVEL,
-            LOCAL_STORAGE_KEY_POMODORO,
-            LOCAL_STORAGE_KEY_XP,
-            LOCAL_STORAGE_KEY_CRYSTALS, // Listen for crystal updates
-        ];
-       if (event instanceof StorageEvent) {
-           if (relevantKeys.includes(event.key || '')) {
-               fetchData();
-           }
-       } else if (event instanceof CustomEvent) {
-           // Assume custom events are relevant and refetch
-           fetchData();
-       }
-    };
-
-
-    window.addEventListener('storage', handleStorageUpdate);
-    window.addEventListener('xpUpdate', handleStorageUpdate);
-    window.addEventListener('taskUpdate', handleStorageUpdate);
-    window.addEventListener('pomodoroUpdate', handleStorageUpdate); // This also updates crystals
-
-    return () => {
-      window.removeEventListener('storage', handleStorageUpdate);
-      window.removeEventListener('xpUpdate', handleStorageUpdate);
-      window.removeEventListener('taskUpdate', handleStorageUpdate);
-      window.removeEventListener('pomodoroUpdate', handleStorageUpdate);
-    };
-  }, []);
-
-  const levelProgress = xpToNext > 0 ? Math.min((currentXp / xpToNext) * 100, 100) : 0;
+  const levelProgress = xpToNextLevel > 0 ? Math.min((xp / xpToNextLevel) * 100, 100) : 0;
   const taskCompletionRate = totalTasks > 0 ? Math.min((tasksCompleted / totalTasks) * 100, 100) : 0;
 
-  const taskTimeData = useMemo(() => {
-    return taskData
-      .filter(task => task.studyTime > 0)
-      .map(task => ({
-        name: task.text.length > 15 ? task.text.substring(0, 15) + '...' : task.text,
-        time: task.studyTime / 60, // Minutes
-      }))
-      .sort((a, b) => b.time - a.time)
-      .slice(0, 5);
-  }, [taskData]);
-
-  // OSRS Progress Bar Component
-    const OsrsProgressBar = ({ value, label, colorClass = "bg-primary" }: { value: number; label: string; colorClass?: string }) => (
-        <div className="w-full h-2 bg-black/40 rounded-full overflow-hidden border border-black/50 shadow-[inset_0_1px_1px_rgba(0,0,0,0.5)]">
-            <div
-                className={cn("h-full transition-all duration-300 ease-out rounded-full border-r border-black/30", colorClass)}
-                style={{ width: `${value}%` }}
-                role="progressbar"
-                aria-valuenow={value}
-                aria-valuemin={0}
-                aria-valuemax={100}
-                aria-label={label}
-            />
-        </div>
-    );
+  // Calculate task time data based on the passed tasks prop
+   const taskTimeData = useMemo(() => {
+     return tasks
+       .filter(task => task.studyTime > 0)
+       .map(task => ({
+         name: task.text.length > 15 ? task.text.substring(0, 15) + '...' : task.text,
+         time: task.studyTime / 60, // Minutes
+         fill: 'var(--color-time)' // Ensure chart color mapping works
+       }))
+       .sort((a, b) => b.time - a.time)
+       .slice(0, 5);
+   }, [tasks]);
 
 
   return (
     <div className="space-y-4">
-       <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5"> {/* Adjusted grid cols for 5 items */}
-            {/* Apply osrs-box to each stat card */}
+       <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+            {/* Total Study Time Card */}
             <Card className="osrs-box">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 pt-2 px-3">
                     <CardTitle className="text-xs font-medium uppercase tracking-wider">Total Study Time</CardTitle>
@@ -179,6 +82,7 @@ export default function Overview() {
                     <p className="text-xs text-muted-foreground">Across all tasks</p>
                 </CardContent>
             </Card>
+             {/* Tasks Completed Card */}
              <Card className="osrs-box">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 pt-2 px-3">
                     <CardTitle className="text-xs font-medium uppercase tracking-wider">Tasks Completed</CardTitle>
@@ -192,17 +96,19 @@ export default function Overview() {
                      <OsrsProgressBar value={taskCompletionRate} label={`${taskCompletionRate.toFixed(0)}% tasks completed`} colorClass="bg-gradient-to-b from-primary via-green-600 to-primary" />
                 </CardContent>
             </Card>
+             {/* Current Level Card */}
              <Card className="osrs-box">
                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 pt-2 px-3">
                     <CardTitle className="text-xs font-medium uppercase tracking-wider">Current Level</CardTitle>
                     <Trophy className="h-4 w-4 text-muted-foreground" strokeWidth={1.5}/>
                 </CardHeader>
                 <CardContent className="px-3 pb-2 space-y-1">
-                    <div className="text-xl font-bold">{currentLevel}</div>
-                     <p className="text-xs text-muted-foreground">{Math.round(currentXp)} / {xpToNext} XP</p>
+                    <div className="text-xl font-bold">{level}</div>
+                     <p className="text-xs text-muted-foreground">{Math.round(xp)} / {xpToNextLevel} XP</p>
                      <OsrsProgressBar value={levelProgress} label={`${levelProgress.toFixed(0)}% XP to next level`} colorClass="bg-gradient-to-b from-accent via-yellow-500 to-accent" />
                 </CardContent>
             </Card>
+             {/* Pomodoro Sessions Card */}
             <Card className="osrs-box">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 pt-2 px-3">
                     <CardTitle className="text-xs font-medium uppercase tracking-wider">Pomodoro Sessions</CardTitle>
@@ -234,10 +140,9 @@ export default function Overview() {
            </CardHeader>
            <CardContent className="pl-2 pr-4 pb-3">
              {taskTimeData.length > 0 ? (
-                <ChartContainer config={{ time: { label: "Time (min)", color: "hsl(var(--accent))" } }} className="h-[200px] w-full">
+                 <ChartContainer config={{ time: { label: "Time (min)", color: "hsl(var(--accent))" } }} className="h-[200px] w-full">
                     <ResponsiveContainer width="100%" height="100%">
                         <BarChart layout="vertical" data={taskTimeData} margin={{ right: 10, left: 10 }}>
-                            {/* Use darker grid lines */}
                             <CartesianGrid horizontal={false} stroke="hsl(var(--border)/0.4)" strokeDasharray="2 3" />
                             <XAxis type="number" dataKey="time" stroke="hsl(var(--foreground)/0.4)" fontSize={9} tickLine={false} axisLine={false} />
                             <YAxis
@@ -248,27 +153,22 @@ export default function Overview() {
                                 stroke="hsl(var(--foreground)/0.6)"
                                 fontSize={9}
                                 tick={{ fill: 'hsl(var(--foreground)/0.8)' }}
-                                width={70} // Adjust width
+                                width={70}
                             />
                             <RechartsTooltip
                                 cursor={{ fill: 'hsl(var(--muted)/0.3)' }}
                                 content={<ChartTooltipContent
                                      hideLabel
-                                     className="osrs-box text-xs p-1.5" // Style tooltip like OSRS box
-                                     />
-                                     }
+                                     className="osrs-box text-xs p-1.5"
+                                     />}
                                 wrapperStyle={{ outline: 'none', fontSize: '10px' }}
                             />
-                             {/* OSRS-style bars */}
                             <Bar dataKey="time" layout="vertical" radius={0} fill="var(--color-time)" barSize={10} shape={(props) => {
                                 const { x, y, width, height, fill } = props;
                                 return (
                                     <g>
-                                        {/* Main bar */}
                                         <rect x={x} y={y} width={width} height={height} fill={fill} />
-                                        {/* Darker edge */}
                                         <rect x={x} y={y+height-1} width={width} height={1} fill="hsl(var(--accent)/0.6)" />
-                                         {/* Lighter edge */}
                                          <rect x={x} y={y} width={1} height={height} fill="hsl(var(--accent)/1.2)" />
                                     </g>
                                 );
@@ -281,7 +181,6 @@ export default function Overview() {
              )}
            </CardContent>
          </Card>
-
        </div>
     </div>
   );
