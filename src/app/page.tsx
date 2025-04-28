@@ -169,8 +169,26 @@ export default function Home() {
   }, [level, xpToNextLevel]);
 
   const getPomodoroDuration = useCallback((mode: TimerMode, currentSettings = pomodoroSettings) => {
+    // Validate the mode
+    if (!['work', 'shortBreak', 'longBreak'].includes(mode)) {
+        console.error('Invalid Pomodoro mode:', mode);
+        mode = 'work'; // Default to 'work' if invalid
+    }
+
+    // Get the duration from the currentSettings or defaultSettings
     const durationKey = `${mode}Duration` as keyof PomodoroSettings;
-    return (currentSettings[durationKey] || defaultSettings[durationKey]) * 60;
+    let duration = currentSettings[durationKey];
+
+    // If the duration is not a number or if it's 0, get it from default settings
+    if (typeof duration !== 'number' || duration === 0) {
+        duration = defaultSettings[durationKey];
+        if (typeof duration !== 'number'){
+            console.error("Default duration is invalid.");
+            duration = 0;
+        }
+    }
+    return duration * 60;
+
   }, [pomodoroSettings]);
 
   // --- LocalStorage Effects ---
@@ -211,7 +229,19 @@ export default function Home() {
     let currentSettings = defaultSettings;
     if (storedSettings) {
       try {
-        currentSettings = { ...defaultSettings, ...JSON.parse(storedSettings) };
+        const parsedSettings = JSON.parse(storedSettings);
+
+        // Merge stored settings with default settings, but only use defaults for missing keys
+        currentSettings = {
+          ...defaultSettings,
+          ...Object.keys(parsedSettings).reduce((acc, key) => {
+            if (key in defaultSettings) {
+              acc[key as keyof PomodoroSettings] = parsedSettings[key];
+            }
+            return acc;
+          }, {} as PomodoroSettings)
+        };
+
       } catch (e) { console.error("Failed to parse settings", e); }
     }
     setPomodoroSettings(currentSettings);
@@ -219,7 +249,7 @@ export default function Home() {
     setPomodoroTimeLeft(initialTime);
     setPomodoroInitialDuration(initialTime); // Set initial duration based on loaded settings
 
-  }, [getPomodoroDuration]); // Add getPomodoroDuration dependency
+  }, [getPomodoroDuration]); // Added getPomodoroDuration dependency
 
 
   // Save Tasks
@@ -234,18 +264,20 @@ export default function Home() {
     if (!isMounted) return;
     localStorage.setItem(LOCAL_STORAGE_KEY_XP, xp.toString());
     localStorage.setItem(LOCAL_STORAGE_KEY_LEVEL, level.toString());
-    // Level up notification
+
+    // Level up notification and update prevLevel
     if (level > prevLevel) {
-       // Use setTimeout to ensure toast runs after the render cycle that updated the level
-       setTimeout(() => {
-         toast({
-          title: "Level Up!",
-          description: `Congratulations! You've reached Level ${level}!`,
-          variant: "default",
-          className: "osrs-box border-accent text-foreground",
-        });
-      }, 0);
-      setPrevLevel(level); // Update previous level after showing toast
+        // Use setTimeout to ensure toast runs after the render cycle that updated the level
+        setTimeout(() => {
+            toast({
+                title: "Level Up!",
+                description: `Congratulations! You've reached Level ${level}!`,
+                className: "osrs-box border-accent text-foreground",
+            });
+        }, 0);
+        if (prevLevel !== level) {
+            setPrevLevel(level); // Update previous level after showing toast only if needed
+        }
     }
   }, [xp, level, prevLevel, toast, isMounted]);
 
@@ -324,9 +356,8 @@ export default function Home() {
          setTimeout(() => toast({
             title: "Focus Broken",
             description: "Your crystal withered...",
-            variant: "destructive",
-            className: "osrs-box border-destructive text-destructive-foreground",
-         }), 0);
+            className: "osrs-box border-destructive text-foreground",
+          }), 0);
      }
 
     setPomodoroIsActive(false);
@@ -377,7 +408,6 @@ export default function Home() {
        setTimeout(() => toast({
         title: notificationTitle,
         description: notificationBody + (pomodoroMode === 'work' ? ' Your crystal grew!' : ''),
-        variant: 'default',
         action: pomodoroMode === 'work' ? <Gem className="text-accent" strokeWidth={1.5} /> : undefined,
         className: "osrs-box border-accent text-foreground",
       }), 0);
@@ -406,7 +436,7 @@ export default function Home() {
      return () => {
          if (pomodoroTimerIntervalRef.current) clearInterval(pomodoroTimerIntervalRef.current);
      };
-  }, [pomodoroIsActive, pomodoroTimeLeft, pomodoroMode, pomodoroSessionsCompleted, pomodoroSettings.sessionsBeforeLongBreak, switchPomodoroMode, toast, showPomodoroNotification]);
+  }, [pomodoroIsActive, pomodoroTimeLeft, pomodoroMode, pomodoroSessionsCompleted, pomodoroSettings.sessionsBeforeLongBreak, switchPomodoroMode, pomodoroSettings.enableNotifications, showPomodoroNotification, toast]); // Added dependencies
 
 
    const togglePomodoroTimer = () => {
@@ -436,7 +466,6 @@ export default function Home() {
          setTimeout(() => toast({
             title: "Focus Broken",
             description: "Your crystal withered...",
-            variant: "destructive",
             className: "osrs-box border-destructive text-destructive-foreground",
         }), 0);
      }
@@ -452,11 +481,15 @@ export default function Home() {
      setTimeout(() => toast({ title: "Timer Reset", description: `${modeLabel} timer reset to ${formatTime(duration)}.`, className: "osrs-box border-secondary text-foreground" }), 0);
   };
 
+    const resetTimer = () => {
+        resetPomodoroTimer();
+    }
+
   // --- Task Actions ---
    const addTask = (text: string, priority: TaskPriority) => {
       if (text.trim() === '') {
            // Use setTimeout for toast
-          setTimeout(() => toast({ title: "Task cannot be empty", variant: "destructive", className: "osrs-box border-destructive"}), 0);
+          setTimeout(() => toast({ title: "Task cannot be empty", className: "osrs-box border-destructive"}), 0);
           return;
       }
       const newTask: Task = {
@@ -504,14 +537,14 @@ export default function Home() {
     }
     setTasks(prev => prev.filter(task => task.id !== id));
      // Use setTimeout for toast
-    setTimeout(() => toast({ title: "Task Deleted", description: `"${taskToDelete?.text}" removed.`, variant: "destructive", className: "osrs-box border-destructive" }), 0);
+    setTimeout(() => toast({ title: "Task Deleted", description: `"${taskToDelete?.text}" removed.`, className: "osrs-box border-destructive" }), 0);
   };
 
   const editTask = (id: string, newText: string) => {
      if (newText.trim() === '') {
           // Use setTimeout for toast
-         setTimeout(() => toast({ title: "Task cannot be empty", variant: "destructive", className: "osrs-box border-destructive"}), 0);
-         return false; // Indicate failure
+         setTimeout(() => toast({ title: "Task cannot be empty", className: "osrs-box border-destructive"}), 0);
+        return false; // Indicate failure
      }
      setTasks(prev => prev.map(task => task.id === id ? { ...task, text: newText, isEditing: false } : task));
        // Use setTimeout for toast
@@ -529,19 +562,24 @@ export default function Home() {
 
 
    // --- Settings Actions ---
-   const updateSettings = (newSettings: PomodoroSettings) => {
+   const updateSettings = (newSettings: PomodoroSettings, manualSave: boolean = false) => {
        setPomodoroSettings(newSettings);
-       localStorage.setItem(FOCUSFRIEND_SETTINGS_KEY, JSON.stringify(newSettings));
-       // Reset timer if settings affecting duration changed and timer is not active
-       if (!pomodoroIsActive) {
-            const newDuration = getPomodoroDuration(pomodoroMode, newSettings);
-            if (pomodoroTimeLeft !== newDuration || pomodoroInitialDuration !== newDuration) {
-                setPomodoroTimeLeft(newDuration);
-                setPomodoroInitialDuration(newDuration);
+
+        // If manualSave is true, persist to localStorage and show toast
+        if (manualSave) {
+          localStorage.setItem(FOCUSFRIEND_SETTINGS_KEY, JSON.stringify(newSettings));
+          setTimeout(() => toast({ title: "Settings Saved", className: "osrs-box border-primary text-foreground" }), 0);
+        }
+
+        // Update timer logic based on new settings if timer is NOT active
+        if (!pomodoroIsActive) {
+           const newDuration = getPomodoroDuration(pomodoroMode, newSettings);
+           // Only update time if the duration actually changed for the current mode
+           if (newDuration !== pomodoroInitialDuration || pomodoroTimeLeft !== newDuration) {
+               setPomodoroTimeLeft(newDuration);
+               setPomodoroInitialDuration(newDuration);
             }
-       }
-        // Use setTimeout for toast
-       setTimeout(() => toast({ title: "Settings Saved", className: "osrs-box border-primary text-foreground"}), 0);
+        }
    };
 
     // --- Memoized Sidebar Click Handlers ---
@@ -682,6 +720,7 @@ export default function Home() {
                 <Settings
                     settings={pomodoroSettings}
                     onSettingsChange={updateSettings}
+                    onManualSave={updateSettings} // Pass the same function for manual save
                  />
             )}
             {!isMounted && <p>Loading...</p>} {/* Or a loading spinner */}
@@ -691,4 +730,3 @@ export default function Home() {
     </SidebarProvider>
   );
 }
-

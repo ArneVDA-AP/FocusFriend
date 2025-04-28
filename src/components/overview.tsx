@@ -140,7 +140,7 @@ export default function Overview({ stats, xp, xpToNextLevel, tasks }: OverviewPr
            </CardHeader>
            <CardContent className="pl-2 pr-4 pb-3">
              {taskTimeData.length > 0 ? (
-                 <ChartContainer config={{ time: { label: "Time (min)", color: "hsl(var(--accent))" } }} className="h-[200px] w-full">
+                 <ChartContainer config={{ time: { label: "Time (min)", color: "hsl(var(--accent))" } }} className="w-full">
                     <ResponsiveContainer width="100%" height="100%">
                         <BarChart layout="vertical" data={taskTimeData} margin={{ right: 10, left: 10 }}>
                             <CartesianGrid horizontal={false} stroke="hsl(var(--border)/0.4)" strokeDasharray="2 3" />
