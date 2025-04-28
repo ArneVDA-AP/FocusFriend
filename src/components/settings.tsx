@@ -23,42 +23,43 @@ export const FOCUSFRIEND_SETTINGS_KEY = 'focusFriendSettings';
 
 interface SettingsProps {
     settings: PomodoroSettings;
-    onSettingsChange: (newSettings: PomodoroSettings, manualSave: boolean) => void;
+    // Remove onSettingsChange as it causes updates during render
+    // onSettingsChange: (newSettings: PomodoroSettings, manualSave: boolean) => void;
     onManualSave: (newSettings: PomodoroSettings, manualSave: boolean) => void;
 }
 
 
-export default function Settings({ settings: initialSettings, onSettingsChange, onManualSave }: SettingsProps) {
+export default function Settings({ settings: initialSettings, onManualSave }: SettingsProps) {
   // Use local state to manage form inputs immediately
   const [localSettings, setLocalSettings] = useState<PomodoroSettings>(initialSettings);
   const [isModified, setIsModified] = useState(false); // Track if settings have changed
 
-  // Sync local state if the prop changes from the parent (e.g., initial load)
-    useEffect(() => {
-      if (JSON.stringify(localSettings) !== JSON.stringify(initialSettings)) {
-        setLocalSettings(initialSettings);
-        setIsModified(false); // Reset modified state when initial settings change
-      } else {
-        setIsModified(false)
-      }
-    }, [initialSettings, localSettings]);
+  // Sync local state only if the initialSettings prop changes from the parent
+  useEffect(() => {
+    // Only update local state if the incoming prop is different from the current local state
+    if (JSON.stringify(localSettings) !== JSON.stringify(initialSettings)) {
+      setLocalSettings(initialSettings);
+      setIsModified(false); // Reset modified state when synced from parent
+    }
+  }, [initialSettings]); // Only depend on initialSettings from props
 
   // Callback to update local state and mark as modified
   const handleChange = useCallback(<K extends keyof PomodoroSettings>(key: K, value: PomodoroSettings[K]) => {
     setLocalSettings(prev => {
         const newSettings = { ...prev, [key]: value };
-        // Check if the new setting is different from the initial prop setting
+        // Check if the new setting is different from the initial prop setting AFTER the state update
+        // We need to compare the *newly created* newSettings with initialSettings
         if (JSON.stringify(newSettings) !== JSON.stringify(initialSettings)) {
             setIsModified(true);
         } else {
-             setIsModified(false);
+            setIsModified(false);
         }
-        // Automatically notify parent of the change (for live timer updates, etc.)
-        // Pass false for manualSave flag here
-        onSettingsChange(newSettings, false);
-        return newSettings;
+        // DO NOT call the parent's state update function here.
+        // This was causing the "Cannot update a component while rendering..." error.
+        // onSettingsChange(newSettings, false); // REMOVED
+        return newSettings; // Return the updated local state
     });
-  }, [initialSettings, onSettingsChange]); // Add initialSettings and onSettingsChange dependency
+  }, [initialSettings]); // Remove onSettingsChange dependency
 
   const handleSliderChange = (key: keyof PomodoroSettings, value: number[]) => {
      handleChange(key, value[0]);

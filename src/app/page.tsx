@@ -301,9 +301,11 @@ export default function Home() {
       const minutes = currentSettings[map[mode]] ?? defaultSettings[map[mode]];
       return Number(minutes ?? 0) * 60;
     },
-    [pomodoroSettings]
+    [pomodoroSettings] // Depends only on pomodoroSettings state
   );
 
+
+  // Needs to be defined before being used in other callbacks
   const switchPomodoroMode = useCallback((newMode: TimerMode) => {
       if (pomodoroIsActive) return; // Don't switch if timer is active
 
@@ -313,6 +315,7 @@ export default function Home() {
       setPomodoroInitialDuration(newDuration); // Update initial duration for progress bar
   }, [pomodoroIsActive, getPomodoroDuration, pomodoroSettings]);
 
+  // Needs to be defined before being used in other callbacks
   const resetTimer = useCallback((modeToReset: TimerMode = pomodoroMode) => {
       if (pomodoroTimerIntervalRef.current) {
           clearInterval(pomodoroTimerIntervalRef.current);
@@ -329,52 +332,53 @@ export default function Home() {
   // --- XP / LEVEL HELPERS ---
   const addXP = useCallback(
     (amount: number) => {
-      setXp((prev) => {
-        let newTotal = prev + amount;
-        let currentLevel = level;
-        let required = xpToNextLevel;
+      setXp((prevXp) => {
+        let newTotalXp = prevXp + amount;
+        let currentLvl = level; // Use level state directly
+        let requiredXp = xpToNextLevel; // Use xpToNextLevel state directly
         let leveledUp = false;
 
-        while (newTotal >= required) {
-          newTotal -= required;
-          currentLevel += 1;
-          required = calculateXpToNextLevel(currentLevel);
+        while (newTotalXp >= requiredXp) {
+          newTotalXp -= requiredXp;
+          currentLvl += 1;
+          requiredXp = calculateXpToNextLevel(currentLvl);
           leveledUp = true;
         }
 
         if (leveledUp) {
-          setLevel(currentLevel);
-          setXpToNextLevel(required);
+          // Queue state updates together for batching
+          setLevel(currentLvl);
+          setXpToNextLevel(requiredXp);
+          // Toast is a side effect, handle it after state updates (in useEffect)
         }
 
-        return newTotal;
+        return newTotalXp; // Return the final XP value for this state update
       });
     },
-    [level, xpToNextLevel]
+    [level, xpToNextLevel] // Depend only on level and xpToNextLevel state
   );
 
 
   // --- TASK TIMER HELPERS ---
-  // Needs to be defined before being used in togglePomodoroTimer and other task functions
+  // Define stopTaskTimer first as it's used by startTaskTimer and others
   const stopTaskTimer = useCallback(() => {
       if (taskTimerIntervalRef.current) {
           clearInterval(taskTimerIntervalRef.current);
           taskTimerIntervalRef.current = null;
       }
       setActiveTaskId(null); // Clear the active task ID
-      setTasks((prev) => prev.map((t) => ({ ...t, isActive: false })));
-  }, []); // No dependencies needed here
+      // Update tasks state immutably
+      setTasks((prevTasks) => prevTasks.map((t) => ({ ...t, isActive: false })));
+  }, []); // No external dependencies needed here
 
+  // Now define startTaskTimer
   const startTaskTimer = useCallback(
     (taskId: string) => {
       // Stop any currently running task timer
-      if (taskTimerIntervalRef.current) {
-        clearInterval(taskTimerIntervalRef.current);
-      }
+      stopTaskTimer(); // Call the already defined stopTaskTimer
+
       // Stop Pomodoro timer if it's running in work mode
        if (pomodoroIsActive && pomodoroMode === 'work') {
-           // togglePomodoroTimer() needs to be defined first
-           // This is handled below by moving togglePomodoroTimer definition up
            setPomodoroIsActive(false); // Pause Pomodoro directly
            if (pomodoroTimerIntervalRef.current) {
              clearInterval(pomodoroTimerIntervalRef.current);
@@ -388,16 +392,16 @@ export default function Home() {
            });
        }
 
-
       setActiveTaskId(taskId); // Set the active task ID
-      setTasks((prev) => prev.map((t) => ({ ...t, isActive: t.id === taskId })));
+      // Update tasks state immutably
+      setTasks((prevTasks) => prevTasks.map((t) => ({ ...t, isActive: t.id === taskId })));
 
       taskTimerIntervalRef.current = setInterval(() => {
-        setTasks((prev) =>
-          prev.map((t) => {
+        setTasks((prevTasks) =>
+          prevTasks.map((t) => {
             if (t.id === taskId && t.isActive) {
               const newTime = (t.studyTime ?? 0) + 1;
-              addXP(XP_PER_SECOND); // Add XP per second
+              addXP(XP_PER_SECOND); // Call the stable addXP function
               return { ...t, studyTime: newTime };
             }
             return t;
@@ -405,7 +409,7 @@ export default function Home() {
         );
       }, 1000);
     },
-    [addXP, pomodoroIsActive, pomodoroMode, toast] // Removed togglePomodoroTimer dependency, handle pause directly
+    [addXP, pomodoroIsActive, pomodoroMode, toast, stopTaskTimer] // Dependencies are stable now
   );
 
    // --- POMODORO MAIN LOGIC ---
@@ -493,7 +497,7 @@ export default function Home() {
           isEditing: false,
       };
       setTasks((prev) => [newTask, ...prev]); // Add to the beginning
-  }, []);
+  }, []); // No external dependencies
 
   const toggleTaskCompletion = useCallback((id: string) => {
       setTasks((prev) =>
@@ -503,31 +507,31 @@ export default function Home() {
                   const isNowComplete = !wasCompleted;
                   // Add/remove XP only when toggling
                   if (isNowComplete) {
-                      addXP(XP_PER_TASK_COMPLETION);
+                      addXP(XP_PER_TASK_COMPLETION); // Use stable addXP
                   } else {
                       // Optional: Remove XP if uncompleted? Current setup doesn't.
                       // setXp(xp => Math.max(0, xp - XP_PER_TASK_COMPLETION));
                   }
-                  // If completing an active task, stop its timer (stopTaskTimer is now defined above)
+                  // If completing an active task, stop its timer
                   if (isNowComplete && task.isActive) {
-                     stopTaskTimer(); // Call stop timer logic
+                     stopTaskTimer(); // Use stable stopTaskTimer
                   }
                   return { ...task, completed: isNowComplete, isActive: false }; // Ensure isActive is false when completed/uncompleted
               }
               return task;
           })
       );
-  }, [addXP, stopTaskTimer]);
+  }, [addXP, stopTaskTimer]); // Use stable addXP and stopTaskTimer
 
   const deleteTask = useCallback((id: string) => {
       setTasks((prev) => prev.filter((task) => {
-           // If deleting the active task, stop the timer (stopTaskTimer is now defined above)
-           if (task.id === id && task.id === activeTaskId) {
-               stopTaskTimer();
+           // If deleting the active task, stop the timer
+           if (task.id === id && task.id === activeTaskId) { // Compare with activeTaskId state
+               stopTaskTimer(); // Use stable stopTaskTimer
            }
           return task.id !== id
       }));
-  }, [activeTaskId, stopTaskTimer]);
+  }, [activeTaskId, stopTaskTimer]); // Depend on activeTaskId state and stable stopTaskTimer
 
   const editTask = useCallback((id: string, newText: string): boolean => {
       if (!newText.trim()) {
@@ -544,7 +548,7 @@ export default function Home() {
           )
       );
       return true; // Indicate success
-  }, [toast]);
+  }, [toast]); // Depends on stable toast
 
  const updateTaskPriority = useCallback((id: string, priority: TaskPriority) => {
    setTasks((prev) =>
@@ -552,7 +556,7 @@ export default function Home() {
        task.id === id ? { ...task, priority: priority } : task
      )
    );
- }, []);
+ }, []); // No external dependencies
 
  const setTaskEditing = useCallback((id: string, isEditing: boolean) => {
    setTasks((prev) =>
@@ -560,29 +564,33 @@ export default function Home() {
        task.id === id ? { ...task, isEditing: isEditing } : task
      )
    );
- }, []);
+ }, []); // No external dependencies
 
   // --- SETTINGS UPDATE FUNCTION ---
+  // This function is called only when the "Save Settings" button is clicked in the Settings component
   const updateSettings = useCallback((newSettings: PomodoroSettings, manualSave: boolean) => {
-      // Always update the local state for immediate UI feedback
-      setPomodoroSettings(newSettings);
+      // Always update the local state for immediate UI feedback (already done in Settings component)
+      // setPomodoroSettings(newSettings); // This would cause the error if called directly from Settings render
 
-      // Only save to localStorage on manual save
+      // Only save to localStorage on manual save (which is always true when this is called)
       if (manualSave) {
+          setPomodoroSettings(newSettings); // Update the parent state *only* on manual save
           localStorage.setItem(FOCUSFRIEND_SETTINGS_KEY, JSON.stringify(newSettings));
           toast({
             title: "Settings Saved",
             description: "Your Pomodoro settings have been updated.",
              className: "osrs-box"
           });
+           // Update the timer *after* saving and updating state,
+           // if it's not active
+           if (!pomodoroIsActive) {
+               const currentModeDuration = getPomodoroDuration(pomodoroMode, newSettings);
+               setPomodoroTimeLeft(currentModeDuration);
+               setPomodoroInitialDuration(currentModeDuration);
+           }
       }
-       // Update the timer immediately if it's not active,
-       // otherwise, the change will apply on the next reset/switch
-       if (!pomodoroIsActive) {
-           const currentModeDuration = getPomodoroDuration(pomodoroMode, newSettings);
-           setPomodoroTimeLeft(currentModeDuration);
-           setPomodoroInitialDuration(currentModeDuration);
-       }
+       // Note: Automatic updates for timer display while editing settings are handled within the Settings component's local state.
+       // The parent state (and thus the timer logic) only updates upon clicking "Save".
   }, [pomodoroIsActive, pomodoroMode, getPomodoroDuration, toast]); // Dependencies
 
 
@@ -642,28 +650,22 @@ export default function Home() {
 
     // --- settings
     const storedSettings = localStorage.getItem(FOCUSFRIEND_SETTINGS_KEY);
+    let loadedSettings = defaultSettings;
     if (storedSettings) {
       try {
         const parsed = JSON.parse(storedSettings);
-        const validSettings = { ...defaultSettings, ...parsed }; // Ensure all keys are present
-        setPomodoroSettings(validSettings);
-        // Initialize timer based on loaded settings
-        const initialTime = getPomodoroDuration("work", validSettings);
-        setPomodoroTimeLeft(initialTime);
-        setPomodoroInitialDuration(initialTime);
+        loadedSettings = { ...defaultSettings, ...parsed }; // Ensure all keys are present
       } catch (err) {
         console.error("Failed to parse settings", err);
-        // If parsing fails, use default settings to initialize timer
-        const initialTime = getPomodoroDuration("work");
-        setPomodoroTimeLeft(initialTime);
-        setPomodoroInitialDuration(initialTime);
+        // Use default settings if parsing fails
       }
-    } else {
-      // If no settings stored, use default settings to initialize timer
-      const initialTime = getPomodoroDuration("work");
-      setPomodoroTimeLeft(initialTime);
-      setPomodoroInitialDuration(initialTime);
     }
+    setPomodoroSettings(loadedSettings);
+    // Initialize timer based on loaded or default settings
+    const initialTime = getPomodoroDuration("work", loadedSettings);
+    setPomodoroTimeLeft(initialTime);
+    setPomodoroInitialDuration(initialTime);
+
 
     // cleanup intervals on unmount
     return () => {
@@ -693,31 +695,41 @@ export default function Home() {
       LOCAL_STORAGE_KEY_GROWN_CRYSTALS,
       grownCrystalsCount.toString()
     );
-    // Save settings separately when they are manually saved in the Settings component
+    // Settings are saved manually via the updateSettings callback
 
-    if (level > prevLevel) {
-        // Use setTimeout to ensure toast appears after render cycle completes
-        setTimeout(() => {
-             toast({
-               title: "Level Up!",
-               description: `Congratulations! You've reached Level ${level}!`,
-               className: "osrs-box border-accent text-foreground",
-             });
-        }, 0);
-      setPrevLevel(level);
-    }
-  }, [isMounted, tasks, xp, level, prevLevel, pomodoroSessionsCompleted, grownCrystalsCount, toast]);
+  }, [isMounted, tasks, xp, level, pomodoroSessionsCompleted, grownCrystalsCount]); // Removed prevLevel, toast dependencies
+
+   //------------------------------------------------
+   //  LEVEL UP TOAST EFFECT
+   //------------------------------------------------
+   useEffect(() => {
+     if (isMounted && level > prevLevel) {
+       // Use setTimeout to ensure toast appears after render cycle completes
+       setTimeout(() => {
+         toast({
+           title: "Level Up!",
+           description: `Congratulations! You've reached Level ${level}!`,
+           className: "osrs-box border-accent text-foreground",
+         });
+       }, 0);
+       setPrevLevel(level); // Update prevLevel *after* showing the toast
+     }
+   }, [level, prevLevel, isMounted, toast]); // Depend on level, prevLevel, isMounted, and toast
+
 
   //------------------------------------------------
-  //  POMODORO SETTINGS EFFECT
+  //  POMODORO SETTINGS EFFECT (for timer display when not active)
   //------------------------------------------------
-   // Effect to update timer duration if settings change while timer is NOT active
+   // Effect to update timer duration if settings change *in the parent state*
+   // and the timer is NOT active
    useEffect(() => {
      if (!pomodoroIsActive) {
        const newDuration = getPomodoroDuration(pomodoroMode, pomodoroSettings);
        setPomodoroTimeLeft(newDuration);
        setPomodoroInitialDuration(newDuration);
      }
+     // This effect runs when pomodoroSettings state in Home changes,
+     // which happens only when the user clicks "Save Settings".
    }, [pomodoroSettings, pomodoroMode, pomodoroIsActive, getPomodoroDuration]);
 
 
@@ -889,8 +901,8 @@ export default function Home() {
             {activeSection === "settings" && isMounted && (
               <Settings
                 settings={pomodoroSettings}
-                onSettingsChange={updateSettings} // Pass the combined handler
-                onManualSave={updateSettings} // Pass the combined handler for explicit save
+                // Remove onSettingsChange prop
+                onManualSave={updateSettings} // Pass the updateSettings handler for explicit save
               />
             )}
 
