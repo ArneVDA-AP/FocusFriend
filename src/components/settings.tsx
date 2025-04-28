@@ -64,7 +64,7 @@ export default function Settings() {
   };
 
   return (
-    <Card className="osrs-box max-w-5xl mx-auto"> {/* Increased max-width */}
+    <Card className="osrs-box mx-auto"> {/* Removed max-w-5xl */}
       <CardHeader className="pb-4 pt-3 px-4">
         <CardTitle className="text-base font-semibold">Pomodoro Timer Settings</CardTitle>
         <CardDescription className="text-xs">Customize your focus sessions and breaks.</CardDescription>
@@ -179,23 +179,6 @@ export default function Settings() {
             aria-label="Autostart Timers"
           />
         </div>
-
-        {/* Dark Mode Toggle - Example Only, functional implementation depends on theme setup */}
-         {/* <div className="flex items-center justify-between space-x-2">
-           <Label htmlFor="darkMode" className="text-sm">
-             Dark Mode (Visual Only)
-           </Label>
-           <Switch
-             id="darkMode"
-             // checked={isDarkMode} // Replace with your dark mode state logic
-             // onCheckedChange={toggleDarkMode} // Replace with your dark mode toggle function
-             aria-label="Toggle Dark Mode"
-             disabled // Disable if not functionally implemented
-           />
-         </div> */}
-
-         {/* Additional settings like Notification Sound and Week Starts On are omitted */}
-         {/* as they require more complex implementation (audio handling, date logic) */}
 
       </CardContent>
     </Card>
