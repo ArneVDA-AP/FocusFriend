@@ -14,12 +14,13 @@ import {
   SidebarFooter,
 } from '@/components/ui/sidebar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ListTodo, Timer, Award, Trophy, LayoutDashboard, BookOpen } from 'lucide-react'; // Use BookOpen temporarily, replace later if needed
+import { ListTodo, Timer, Award, Trophy, LayoutDashboard, BookOpen, Settings as SettingsIcon } from 'lucide-react'; // Use BookOpen temporarily, replace later if needed
 import StudyTracker from '@/components/study-tracker';
 import PomodoroTimer from '@/components/pomodoro-timer';
 import LevelSystem from '@/components/level-system';
 import Achievements from '@/components/achievements';
 import Overview from '@/components/overview';
+import Settings from '@/components/settings'; // Import Settings component
 import { cn } from '@/lib/utils';
 
 // Simple Pixel Scroll SVG Icon
@@ -42,7 +43,7 @@ export default function Home() {
           <SidebarHeader>
             <div className="flex items-center gap-2 justify-center group-data-[collapsible=icon]:justify-center">
               <PixelScrollIcon />
-              <h1 className="text-xl font-semibold group-data-[collapsible=icon]:hidden tracking-wider">StudyQuest</h1>
+              <h1 className="text-xl font-semibold group-data-[collapsible=icon]:hidden tracking-wider">FocusFriend</h1>
             </div>
           </SidebarHeader>
           <SidebarContent>
@@ -102,6 +103,17 @@ export default function Home() {
                   <span className="group-data-[collapsible=icon]:hidden">Achievements</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
+               <SidebarMenuItem>
+                <SidebarMenuButton
+                  onClick={() => setActiveSection('settings')}
+                  isActive={activeSection === 'settings'}
+                  tooltip="Settings"
+                   className="text-sm"
+                >
+                  <SettingsIcon strokeWidth={1.5}/>
+                  <span className="group-data-[collapsible=icon]:hidden">Settings</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
             </SidebarMenu>
           </SidebarContent>
            <SidebarFooter className="group-data-[collapsible=icon]:hidden">
@@ -123,6 +135,7 @@ export default function Home() {
                     {activeSection === 'pomodoro' && 'Pomodoro Timer'}
                     {activeSection === 'levels' && 'Level Progression'}
                     {activeSection === 'achievements' && 'Achievements Log'}
+                    {activeSection === 'settings' && 'Pomodoro Settings'}
                  </h2>
              </div>
             <div></div> {/* Placeholder for potential header actions */}
@@ -135,6 +148,7 @@ export default function Home() {
             {activeSection === 'pomodoro' && <PomodoroTimer />}
             {activeSection === 'levels' && <LevelSystem />}
             {activeSection === 'achievements' && <Achievements />}
+            {activeSection === 'settings' && <Settings />}
           </div>
         </SidebarInset>
       </div>

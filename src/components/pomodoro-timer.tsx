@@ -1,99 +1,188 @@
+
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Progress } from '@/components/ui/progress';
 import { Play, Pause, RotateCw, Coffee, BookOpen } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
-
+import { PomodoroSettings, FOCUSFRIEND_SETTINGS_KEY } from '@/components/settings'; // Import settings interface and key
 
 type TimerMode = 'work' | 'shortBreak' | 'longBreak';
 
-const WORK_DURATION = 25 * 60; // 25 minutes in seconds
-const SHORT_BREAK_DURATION = 5 * 60; // 5 minutes
-const LONG_BREAK_DURATION = 15 * 60; // 15 minutes
-const SESSIONS_BEFORE_LONG_BREAK = 4;
-const LOCAL_STORAGE_KEY_POMODORO = 'studyQuestPomodoroSessions';
+const LOCAL_STORAGE_KEY_POMODORO_SESSIONS = 'focusFriendPomodoroSessions';
+
+// Default values (will be overridden by loaded settings)
+const defaultSettings: PomodoroSettings = {
+  workDuration: 25,
+  shortBreakDuration: 5,
+  longBreakDuration: 15,
+  sessionsBeforeLongBreak: 4,
+  enableNotifications: true,
+  enableAutostart: false,
+};
 
 export default function PomodoroTimer() {
+  const [settings, setSettings] = useState<PomodoroSettings>(defaultSettings);
   const [mode, setMode] = useState<TimerMode>('work');
-  const [timeLeft, setTimeLeft] = useState<number>(WORK_DURATION);
+  const [timeLeft, setTimeLeft] = useState<number>(defaultSettings.workDuration * 60);
   const [isActive, setIsActive] = useState<boolean>(false);
   const [sessionsCompleted, setSessionsCompleted] = useState<number>(0);
   const { toast } = useToast();
-  const [timerInterval, setTimerInterval] = useState<NodeJS.Timeout | null>(null);
+  const timerIntervalRef = useRef<NodeJS.Timeout | null>(null); // Use ref for interval
 
-   useEffect(() => {
-       const storedSessions = localStorage.getItem(LOCAL_STORAGE_KEY_POMODORO);
-       if (storedSessions) {
-           setSessionsCompleted(parseInt(storedSessions, 10));
-       }
-   }, []);
+  // Load settings and sessions on mount
+  useEffect(() => {
+    const storedSettings = localStorage.getItem(FOCUSFRIEND_SETTINGS_KEY);
+    let currentSettings = defaultSettings;
+    if (storedSettings) {
+      try {
+        currentSettings = { ...defaultSettings, ...JSON.parse(storedSettings) };
+      } catch (e) {
+        console.error("Failed to parse settings", e);
+      }
+    }
+    setSettings(currentSettings);
+    setTimeLeft(currentSettings.workDuration * 60); // Initialize timer with loaded duration
 
+    const storedSessions = localStorage.getItem(LOCAL_STORAGE_KEY_POMODORO_SESSIONS);
+    if (storedSessions) {
+      setSessionsCompleted(parseInt(storedSessions, 10));
+    }
+
+    // Listen for settings updates from the settings page
+    const handleSettingsUpdate = () => {
+        const updatedStoredSettings = localStorage.getItem(FOCUSFRIEND_SETTINGS_KEY);
+         let updatedSettings = defaultSettings;
+        if (updatedStoredSettings) {
+             try {
+                updatedSettings = { ...defaultSettings, ...JSON.parse(updatedStoredSettings) };
+             } catch (e) { console.error("Failed to parse updated settings", e); }
+        }
+        setSettings(updatedSettings);
+         // Reset timer if it's not active and mode/duration changed
+         if (!isActive) {
+             setTimeLeft(updatedSettings[`${mode}Duration` as keyof PomodoroSettings] * 60);
+         }
+    };
+
+     window.addEventListener('storage', (event) => {
+        if (event.key === FOCUSFRIEND_SETTINGS_KEY) {
+            handleSettingsUpdate();
+        }
+         if (event.key === LOCAL_STORAGE_KEY_POMODORO_SESSIONS) {
+             const updatedSessions = localStorage.getItem(LOCAL_STORAGE_KEY_POMODORO_SESSIONS);
+             setSessionsCompleted(updatedSessions ? parseInt(updatedSessions, 10) : 0);
+         }
+     });
+     // Use custom event if storage event is not reliable across tabs/windows for your setup
+     window.addEventListener('settingsUpdate', handleSettingsUpdate);
+
+
+    return () => {
+         window.removeEventListener('settingsUpdate', handleSettingsUpdate);
+         // Clean up storage listener if added above
+    };
+
+  }, [isActive, mode]); // Add isActive and mode dependency to reset timer correctly on settings change
+
+  // Save sessions completed count
    useEffect(() => {
-       localStorage.setItem(LOCAL_STORAGE_KEY_POMODORO, sessionsCompleted.toString());
-        window.dispatchEvent(new CustomEvent('pomodoroUpdate'));
+       localStorage.setItem(LOCAL_STORAGE_KEY_POMODORO_SESSIONS, sessionsCompleted.toString());
+        // Dispatch custom event for cross-component updates if needed
+        // window.dispatchEvent(new CustomEvent('pomodoroUpdate'));
    }, [sessionsCompleted]);
 
 
    const getDuration = useCallback((currentMode: TimerMode) => {
-    switch (currentMode) {
-      case 'work':
-        return WORK_DURATION;
-      case 'shortBreak':
-        return SHORT_BREAK_DURATION;
-      case 'longBreak':
-        return LONG_BREAK_DURATION;
-      default:
-        return WORK_DURATION;
+        // Use settings directly, ensure property name matches
+        const durationKey = `${currentMode}Duration` as keyof PomodoroSettings;
+        return (settings[durationKey] || defaultSettings[durationKey]) * 60; // Fallback to default
+   }, [settings]);
+
+
+  // Function to show notification
+  const showNotification = useCallback((title: string, body: string) => {
+    if (!settings.enableNotifications || !("Notification" in window)) {
+      return;
     }
-  }, []);
+
+    if (Notification.permission === "granted") {
+      new Notification(title, { body });
+    } else if (Notification.permission !== "denied") {
+      Notification.requestPermission().then((permission) => {
+        if (permission === "granted") {
+          new Notification(title, { body });
+        }
+      });
+    }
+  }, [settings.enableNotifications]);
 
   const switchMode = useCallback((nextMode: TimerMode) => {
     setIsActive(false);
-    if (timerInterval) clearInterval(timerInterval);
-    setTimerInterval(null);
+    if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
+    timerIntervalRef.current = null;
 
     setMode(nextMode);
-    setTimeLeft(getDuration(nextMode));
+    const newDuration = getDuration(nextMode);
+    setTimeLeft(newDuration);
 
     const modeText = nextMode === 'work' ? 'Work' : nextMode === 'shortBreak' ? 'Short Break' : 'Long Break';
+    const description = `Time for ${nextMode === 'work' ? 'focus!' : 'a break!'} (${formatTime(newDuration)})`;
+
+     // Toast notification
      setTimeout(() => toast({
       title: `Mode: ${modeText}`,
-      description: `Time for ${nextMode === 'work' ? 'focus!' : 'a break!'} (${formatTime(getDuration(nextMode))})`,
+      description: description,
       action: nextMode === 'work' ? <BookOpen className="text-primary" strokeWidth={1.5}/> : <Coffee className="text-secondary-foreground" strokeWidth={1.5}/>,
       className: "osrs-box border-secondary text-foreground", // OSRS style toast
     }), 0);
 
-  }, [getDuration, timerInterval, toast]);
+     // Browser notification
+     showNotification(`Switched to ${modeText}`, description);
+
+    // Handle autostart
+     if (settings.enableAutostart) {
+         setIsActive(true);
+     }
+
+  }, [getDuration, toast, showNotification, settings.enableAutostart]);
 
 
   useEffect(() => {
     if (isActive && timeLeft > 0) {
-      const interval = setInterval(() => {
+      timerIntervalRef.current = setInterval(() => {
         setTimeLeft((prevTime) => prevTime - 1);
       }, 1000);
-      setTimerInterval(interval);
-      return () => clearInterval(interval);
+      return () => {
+          if(timerIntervalRef.current) clearInterval(timerIntervalRef.current);
+      };
     } else if (isActive && timeLeft === 0) {
+      // Timer finished
       setIsActive(false);
-      if (timerInterval) clearInterval(timerInterval);
-      setTimerInterval(null);
+      if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
+      timerIntervalRef.current = null;
 
+      const notificationTitle = mode === 'work' ? 'Work Session Complete!' : 'Break Over!';
+      const notificationBody = mode === 'work' ? 'Well done! Time for a break.' : 'Back to the grind!';
+
+       // Toast
        setTimeout(() => toast({
-        title: mode === 'work' ? 'Work Session Complete!' : 'Break Over!',
-        description: mode === 'work' ? 'Well done! Time for a break.' : 'Back to the grind!',
+        title: notificationTitle,
+        description: notificationBody,
         variant: 'default',
         className: "osrs-box border-accent text-foreground", // OSRS style toast
       }), 0);
+
+      // Browser Notification
+       showNotification(notificationTitle, notificationBody);
 
 
       if (mode === 'work') {
         const newSessionsCompleted = sessionsCompleted + 1;
         setSessionsCompleted(newSessionsCompleted);
-        if (newSessionsCompleted % SESSIONS_BEFORE_LONG_BREAK === 0) {
+         if (newSessionsCompleted % settings.sessionsBeforeLongBreak === 0) {
           switchMode('longBreak');
         } else {
           switchMode('shortBreak');
@@ -102,20 +191,22 @@ export default function PomodoroTimer() {
         switchMode('work');
       }
     } else {
-        if (timerInterval) clearInterval(timerInterval);
-        setTimerInterval(null);
+        // Timer is paused or reset
+        if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
+        timerIntervalRef.current = null;
     }
      // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isActive, timeLeft]); // switchMode is memoized, toast is stable
+  }, [isActive, timeLeft, settings.sessionsBeforeLongBreak]); // Add switchMode dependency if it changes, ensure it's memoized
 
 
+  // Cleanup interval on unmount
   useEffect(() => {
     return () => {
-      if (timerInterval) {
-        clearInterval(timerInterval);
+      if (timerIntervalRef.current) {
+        clearInterval(timerIntervalRef.current);
       }
     };
-  }, [timerInterval]);
+  }, []);
 
 
   const toggleTimer = () => {
@@ -124,6 +215,10 @@ export default function PomodoroTimer() {
      setTimeout(() => {
          if (!wasActive) {
             toast({ title: "Timer Started", description: `Focus for ${formatTime(timeLeft)}!` , className: "osrs-box border-primary text-foreground"});
+             // Request notification permission when timer starts if not granted/denied
+             if (settings.enableNotifications && Notification.permission === "default") {
+                 Notification.requestPermission();
+             }
          } else {
             toast({ title: "Timer Paused", className: "osrs-box border-secondary text-foreground" });
          }
@@ -132,10 +227,11 @@ export default function PomodoroTimer() {
 
   const resetTimer = () => {
     setIsActive(false);
-     if (timerInterval) clearInterval(timerInterval);
-     setTimerInterval(null);
-    setTimeLeft(getDuration(mode));
-     setTimeout(() => toast({ title: "Timer Reset", description: `${mode === 'work' ? 'Work' : mode === 'shortBreak' ? 'Short Break' : 'Long Break'} timer reset to ${formatTime(getDuration(mode))}.`, className: "osrs-box border-secondary text-foreground" }), 0);
+     if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
+     timerIntervalRef.current = null;
+    const duration = getDuration(mode);
+    setTimeLeft(duration);
+     setTimeout(() => toast({ title: "Timer Reset", description: `${mode === 'work' ? 'Work' : mode === 'shortBreak' ? 'Short Break' : 'Long Break'} timer reset to ${formatTime(duration)}.`, className: "osrs-box border-secondary text-foreground" }), 0);
   };
 
   const formatTime = (seconds: number) => {
@@ -144,7 +240,8 @@ export default function PomodoroTimer() {
     return `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
   };
 
-  const progress = ((getDuration(mode) - timeLeft) / getDuration(mode)) * 100;
+  const durationForMode = getDuration(mode);
+  const progress = durationForMode > 0 ? ((durationForMode - timeLeft) / durationForMode) * 100 : 0;
   const modeLabel = mode === 'work' ? 'Focus Session' : mode === 'shortBreak' ? 'Short Break' : 'Long Break';
 
   return (
@@ -161,6 +258,7 @@ export default function PomodoroTimer() {
             onClick={() => switchMode('work')}
             size="sm"
             className={cn(mode === 'work' ? '' : 'bg-transparent border-input hover:bg-muted/50')}
+            disabled={isActive} // Disable mode switching while timer is active
           >
             <BookOpen className="mr-1.5 h-4 w-4" strokeWidth={1.5}/> Work
           </Button>
@@ -169,6 +267,7 @@ export default function PomodoroTimer() {
             onClick={() => switchMode('shortBreak')}
             size="sm"
              className={cn(mode === 'shortBreak' ? '' : 'bg-transparent border-input hover:bg-muted/50')}
+             disabled={isActive}
           >
            <Coffee className="mr-1.5 h-4 w-4" strokeWidth={1.5}/> Short Break
           </Button>
@@ -177,6 +276,7 @@ export default function PomodoroTimer() {
             onClick={() => switchMode('longBreak')}
             size="sm"
              className={cn(mode === 'longBreak' ? '' : 'bg-transparent border-input hover:bg-muted/50')}
+             disabled={isActive}
           >
             <Coffee className="mr-1.5 h-4 w-4" strokeWidth={1.5}/> Long Break
           </Button>

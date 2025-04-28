@@ -13,8 +13,8 @@ const vt323 = VT323({
 
 
 export const metadata: Metadata = {
-  title: 'StudyQuest',
-  description: 'Track your studying with tasks, pomodoro timer, and gamification.',
+  title: 'FocusFriend',
+  description: 'Your friendly companion for focused work and study sessions.',
 };
 
 export default function RootLayout({
