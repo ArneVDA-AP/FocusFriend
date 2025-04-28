@@ -534,7 +534,8 @@ const sidebarMenuButtonVariants = cva(
   }
 )
 
-const SidebarMenuButton = React.forwardRef<
+// Wrap SidebarMenuButton with React.memo to prevent unnecessary re-renders
+const SidebarMenuButton = React.memo(React.forwardRef<
   HTMLButtonElement,
   React.ComponentProps<"button"> & {
     asChild?: boolean
@@ -548,7 +549,7 @@ const SidebarMenuButton = React.forwardRef<
       isActive = false,
       variant = "default",
       size = "default",
-      tooltip, // Use the prop directly
+      tooltip: tooltipProp, // Rename prop to avoid naming conflict
       className,
       ...props
     },
@@ -569,8 +570,8 @@ const SidebarMenuButton = React.forwardRef<
        />
     );
 
-    // Conditionally wrap with Tooltip if tooltip prop is provided
-    if (tooltip) {
+    // Conditionally wrap with Tooltip if tooltipProp is provided
+    if (tooltipProp) {
       return (
         <Tooltip>
           <TooltipTrigger asChild>{buttonElement}</TooltipTrigger>
@@ -580,7 +581,7 @@ const SidebarMenuButton = React.forwardRef<
              hidden={state !== "collapsed" || isMobile}
           >
             {/* Render tooltip content directly */}
-            {tooltip}
+            {tooltipProp}
           </TooltipContent>
         </Tooltip>
       );
@@ -589,7 +590,7 @@ const SidebarMenuButton = React.forwardRef<
     // Return the button without tooltip if no tooltip prop is provided
     return buttonElement;
   }
-)
+))
 SidebarMenuButton.displayName = "SidebarMenuButton"
 
 
@@ -763,4 +764,6 @@ export {
   useSidebar,
 }
 
-    
+
+
+
