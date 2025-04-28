@@ -21,6 +21,7 @@ interface OverviewProps {
     xp: number;
     xpToNextLevel: number;
     tasks: Task[]; // Pass full tasks array
+    skills: Skill[]; // Pass skills
 }
 
 interface Skill {
@@ -114,9 +115,16 @@ const SkillsComponent = ({ skills }: { skills: Skill[] }) => {
     );
   };
 
-export default function Overview({ stats, xp, xpToNextLevel, tasks }: OverviewProps) {
+export default function Overview({ stats, xp, xpToNextLevel, tasks, skills }: OverviewProps) {
 
-    const [userSkills, setUserSkills] = useState<Skill[]>([]); // Initialize with empty array
+    const [skillsLocal, setSkillsLocal] = useState<Skill[]>([
+        { id: "reading", name: "Reading", current_level: 1, current_xp: 0, xpToNextLevel: 100 }, 
+        { id: "coding", name: "Coding", current_level: 1, current_xp: 0, xpToNextLevel: 100 },
+        { id: "memorization", name: "Memorization", current_level: 1, current_xp: 0, xpToNextLevel: 100 }
+    ]);
+    
+    
+    // const [userSkills, setUserSkills] = useState<Skill[]>([]); // Initialize with empty array
 
     // Removed useEffect block that used fs.readFileSync
 
@@ -261,7 +269,7 @@ export default function Overview({ stats, xp, xpToNextLevel, tasks }: OverviewPr
 
        {/* Skills section - Keep this if you load skill data differently */}
        <div className="grid gap-4 md:grid-cols-1">
-            <SkillsComponent skills={userSkills} />
+            <SkillsComponent skills={skills} />
             {/* Removed placeholder buttons for task completion */}
        </div>
     </div>

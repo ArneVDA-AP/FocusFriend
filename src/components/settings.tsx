@@ -29,7 +29,7 @@ interface SettingsProps {
 }
 
 
-export default function Settings({ settings: initialSettings, onManualSave }: SettingsProps) {
+export function Settings({ settings: initialSettings, onManualSave }: SettingsProps) {
   // Use local state to manage form inputs immediately
   const [localSettings, setLocalSettings] = useState<PomodoroSettings>(initialSettings);
   const [isModified, setIsModified] = useState(false); // Track if settings have changed
@@ -204,3 +204,5 @@ export default function Settings({ settings: initialSettings, onManualSave }: Se
     </Card>
   );
 }
+
+export default Settings;

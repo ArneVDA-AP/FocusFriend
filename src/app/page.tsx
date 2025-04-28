@@ -1,6 +1,5 @@
 
 "use client";
-
 import React, {
   useState,
   useEffect,
@@ -19,10 +18,11 @@ import {
   SidebarMenu,
   SidebarMenuItem,
   SidebarMenuButton,
-  SidebarFooter,
-} from "@/components/ui/sidebar";
+  SidebarFooter
+} from "@/components/ui/sidebar-wrapper";
 
 import {
+  Flower,
   ListTodo,
   Timer,
   Award,
@@ -31,7 +31,7 @@ import {
   Settings as SettingsIcon,
   Gem,
   BookOpen,
-  Coffee,
+ Coffee,
   Lock,
   CheckCircle,
 } from "lucide-react";
@@ -40,6 +40,9 @@ import StudyTracker, {
   Task,
   TaskPriority,
 } from "@/components/study-tracker";
+import FocusCrystal, {
+  FocusCrystalProps
+} from '@/components/focus-crystal';
 import PomodoroTimer, {
   TimerMode,
 } from "@/components/pomodoro-timer";
@@ -61,15 +64,15 @@ import { useToast } from "@/hooks/use-toast";
 import { UserSkill, SkillDefinition, calculateXpToNextLevel as calculateSkillXpToNextLevel, completeTask as completeSkillTask } from '@/lib/skills';
 
 // Placeholder data - in a real app, this would come from an API or DB
-import defaultSkillsData from '@/data/skills.json';
-import defaultUserSkillsData from '@/data/user_skills.json';
+import defaultSkillsData from "@/data/skills.json";
+import defaultUserSkillsData from "@/data/user_skills.json";
 
 
 //--------------------------------------------------
 //  CONSTANTS & HELPERS
 //--------------------------------------------------
 
-const LOCAL_STORAGE_KEY_TASKS = "studyQuestTasks";
+const LOCAL_STORAGE_KEY_TASKS = "studyQuestTasks";//
 const LOCAL_STORAGE_KEY_XP = "studyQuestXP"; // Overall User XP
 const LOCAL_STORAGE_KEY_LEVEL = "studyQuestLevel"; // Overall User Level
 const LOCAL_STORAGE_KEY_USER_SKILLS = "studyQuestUserSkills"; // User's skill progress
@@ -113,7 +116,7 @@ const formatTime = (totalSeconds: number): string => {
 const initialAchievementsData: Omit<Achievement, "unlocked" | "icon">[] = [
   {
     id: 1,
-    name: "First Task",
+     name: "First Task",
     description: "Complete your first study task.",
     unlockCondition: (stats) => stats.tasksCompleted >= 1,
   },
@@ -173,7 +176,7 @@ const initialAchievementsData: Omit<Achievement, "unlocked" | "icon">[] = [
   },
 ];
 
-//--------------------------------------------------
+//---------------------------------------------------
 //  PIXEL‑ART SCROLL ICON COMPONENT
 //--------------------------------------------------
 
@@ -191,6 +194,7 @@ const PixelScrollIcon = () => (
     <path
       style={{ imageRendering: "pixelated", fill: "hsl(var(--foreground)/0.8)" }}
       d="M7 5H17V6H16V7H15V8H9V7H8V6H7V5ZM7 18V19H17V18H16V17H15V16H9V17H8V18H7Z"
+
     />
   </svg>
 );
@@ -276,7 +280,7 @@ export default function Home() {
   );
 
    // Derived Skill Data for UI (e.g., for Overview)
-   const overviewSkillsData = useMemo(() => {
+  const overviewSkillsData = useMemo(() => {
        return userSkills.map(userSkill => {
            const definition = skillDefinitions.find(def => def.id === userSkill.skill_id);
            return {
@@ -287,7 +291,7 @@ export default function Home() {
        });
    }, [userSkills, skillDefinitions]);
 
-
+  
   //------------------------------------------------
   //  ACHIEVEMENTS (computed from userStats)
   //------------------------------------------------
@@ -327,7 +331,7 @@ export default function Home() {
         longBreak: "longBreakDuration",
       };
       const minutes = currentSettings[map[mode]] ?? defaultSettings[map[mode]];
-      return Number(minutes ?? 0) * 60;
+      return Number(minutes ?? 0) * 60; // Ensure minutes is a number
     },
     [pomodoroSettings] // Depends only on pomodoroSettings state
   );
@@ -392,7 +396,7 @@ export default function Home() {
      if (isMounted && level > prevLevel) {
        // Use setTimeout to ensure toast appears after render cycle completes
        setTimeout(() => {
-         toast({
+        toast({
            title: "Level Up!",
            description: `Congratulations! You've reached Overall Level ${level}!`,
            className: "osrs-box border-accent text-foreground",
@@ -471,7 +475,7 @@ export default function Home() {
                          setGrownCrystalsCount(c => c + 1); // Increment grown crystals
                          addOverallXP(50); // Bonus OVERALL XP for completing a work session
                          toast({ title: "Focus Session Complete!", description: "Time for a break. Crystal grown!", className: "osrs-box border-accent text-foreground" });
-
+                        
                          // Determine next mode based on settings
                          const sessions = pomodoroSessionsCompleted + 1; // Use the upcoming count
                          const nextMode = sessions % pomodoroSettings.sessionsBeforeLongBreak === 0 ? 'longBreak' : 'shortBreak';
@@ -537,7 +541,7 @@ export default function Home() {
                        // Call the imported skill completion function
                        // It requires the current userSkills state
                        setUserSkills(currentSkills =>
-                           completeSkillTask('user123', task.id, skillIdToAward, timeSpent, currentSkills)
+                         completeSkillTask('user123', task.id, skillIdToAward, timeSpent, currentSkills)
                        );
 
                       // If completing an active task, stop its timer
@@ -555,7 +559,7 @@ export default function Home() {
   }, [addOverallXP, stopTaskTimer, setUserSkills]); // Add setUserSkills dependency
 
 
-  const deleteTask = useCallback((id: string) => {
+ const deleteTask = useCallback((id: string) => {
       setTasks((prev) => prev.filter((task) => {
            if (task.id === id && task.id === activeTaskId) {
                stopTaskTimer();
@@ -578,7 +582,7 @@ export default function Home() {
                   ...task,
                   text: newText.trim(),
                   skillId: newSkillId ?? task.skillId, // Update skill if provided
-                  isEditing: false
+                  isEditing: false,
                   } : task
           )
       );
@@ -593,7 +597,7 @@ export default function Home() {
    );
  }, []);
 
- const setTaskEditing = useCallback((id: string, isEditing: boolean) => {
+ const setTaskEditing = useCallback((id: string, isEditing: boolean)=> {
    setTasks((prev) =>
      prev.map((task) =>
        task.id === id ? { ...task, isEditing: isEditing } : task
@@ -611,7 +615,7 @@ export default function Home() {
             description: "Your Pomodoro settings have been updated.",
              className: "osrs-box"
           });
-           if (!pomodoroIsActive) {
+          if (!pomodoroIsActive) {
                const currentModeDuration = getPomodoroDuration(pomodoroMode, newSettings);
                setPomodoroTimeLeft(currentModeDuration);
                setPomodoroInitialDuration(currentModeDuration);
@@ -859,7 +863,7 @@ export default function Home() {
           <SidebarFooter className="group-data-[collapsible=icon]:hidden">
             <p className="text-xs text-muted-foreground text-center opacity-70">
               OSRS Inspired
-            </p>
+            </p>          
           </SidebarFooter>
         </Sidebar>
 
@@ -881,19 +885,20 @@ export default function Home() {
             <div />
           </div>
 
-          {/* ---------- main grid ---------- */}
           <div className="grid grid-cols-1 gap-4 osrs-box p-3 md:p-4">
             {activeSection === "overview" && isMounted && (
+              <>
+              {console.log("Overview is", Overview)}
               <Overview
-                stats={userStats} // Pass overall user stats
-                xp={xp} // Pass overall XP
-                xpToNextLevel={xpToNextLevel} // Pass overall XP needed
-                tasks={tasks}
-                // Pass the processed skill data for display
-                skills={overviewSkillsData}
+              stats={userStats}
+              xp={xp}
+              xpToNextLevel={xpToNextLevel}
+              tasks={tasks}
+              skills={overviewSkillsData}
               />
+              </>
             )}
-
+            
             {activeSection === "study" && isMounted && (
               <StudyTracker
                 tasks={tasks}
@@ -915,7 +920,7 @@ export default function Home() {
                 skillDefinitions={skillDefinitions}
               />
             )}
-
+          
             {activeSection === "pomodoro" && isMounted && (
               <PomodoroTimer
                 settings={pomodoroSettings}
@@ -926,22 +931,26 @@ export default function Home() {
                 grownCrystalsCount={grownCrystalsCount}
                 initialDuration={pomodoroInitialDuration}
                 switchMode={switchPomodoroMode}
+                // Pass isGrowing prop
+                isGrowing={pomodoroMode === 'work' && pomodoroIsActive}
+                
                 toggleTimer={togglePomodoroTimer}
                 resetTimer={() => resetTimer()}
               />
             )}
-
+                        
             {activeSection === "levels" && isMounted && (
                // Display Overall Level progression
               <LevelSystem xp={xp} level={level} xpToNextLevel={xpToNextLevel} />
             )}
-
+                        
             {activeSection === "achievements" && isMounted && (
               <Achievements userStats={userStats} achievements={achievements} />
             )}
-
+                        
+            
             {activeSection === "settings" && isMounted && (
-              <Settings
+             <Settings
                 settings={pomodoroSettings}
                 onManualSave={updateSettings}
               />

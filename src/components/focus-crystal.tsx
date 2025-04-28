@@ -5,7 +5,7 @@ import { cn } from '@/lib/utils';
 import React, { useEffect } from 'react'; // Import useEffect from 'react'
 
 interface FocusCrystalProps {
-    stage: number; // 0-24 represents growth stage
+    stage: number; // 0-24 represents growth stage    
     isGrowing: boolean;
     isWithered: boolean;
 }
@@ -69,13 +69,15 @@ const FocusCrystal: React.FC<FocusCrystalProps> = ({ stage, isGrowing, isWithere
 
     // Determine glow intensity based on growth
     let glowIntensity = 0;
-    if (isGrowing) {
-        glowIntensity = 0.2 + (currentStageIndex / 24) * 0.4; // Glow increases with stage
+      if (isGrowing) {
+        glowIntensity = 0.6;
+        //glowIntensity = 0.2 + (currentStageIndex / 24) * 0.4; // Glow increases with stage
+
     } else if (!isWithered && currentStageIndex === 24) {
-        glowIntensity = 0.6; // Max glow when fully grown and not active
+        glowIntensity = 0; // Max glow when fully grown and not active
     } else if (isWithered) {
         glowIntensity = 0; // No glow if withered
-    }
+    } 
 
     return (
         <>

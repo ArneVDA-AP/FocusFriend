@@ -1,4 +1,5 @@
-const fs = jest.createMockFromModule('fs') as any;
+const fs = jest.createMockFromModule('fs');
+
 
 let mockedFiles = {};
 
@@ -25,4 +26,4 @@ fs.__clearMockedFiles = () => {
     mockedFiles = {};
 };
 
-export default fs;
+module.exports = fs;

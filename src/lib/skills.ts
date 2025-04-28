@@ -7,12 +7,16 @@ export interface UserSkill {
   current_xp: number;
 }
 
+export {UserSkill};
+
 export interface SkillDefinition {
     id: string;
     name: string;
     description: string;
     level_cap: number;
 }
+
+export {SkillDefinition};
 
 // Removed file path constants
 
