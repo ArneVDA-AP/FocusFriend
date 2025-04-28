@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react'; // Keep useEffect import here
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -54,9 +54,9 @@ interface StudyTrackerProps {
   editTask: (id: string, newText: string, newSkillId?: string) => boolean;
   updateTaskPriority: (id: string, priority: TaskPriority) => void;
   startTaskTimer: (id: string) => void;
-  stopTaskTimer: () => void;
+  stopTaskTimer: (taskId: string) => void; // Changed to accept taskId
   setTaskEditing: (id: string, isEditing: boolean) => void;
-  activeTaskId: string | null; // To show correct play/pause state based on parent state
+  activeTaskIds: string[]; // Changed to track multiple active tasks
   skillDefinitions: SkillDefinition[]; // Pass skill definitions for dropdown
 }
 
@@ -73,7 +73,7 @@ export default function StudyTracker({
   startTaskTimer,
   stopTaskTimer,
   setTaskEditing,
-  activeTaskId,
+  activeTaskIds, // Use the array of active task IDs
   skillDefinitions, // Receive skill definitions
 }: StudyTrackerProps) {
   const [newTaskText, setNewTaskText] = useState('');
@@ -209,12 +209,12 @@ export default function StudyTracker({
               onKeyPress={(e) => e.key === 'Enter' && newTaskText.trim() && handleAddTask()}
               aria-label="New Task Input"
               className="flex-grow osrs-inner-bevel"
-              disabled={!!activeTaskId}
+              disabled={false} // Allow adding tasks even if others are active
             />
              <div className="flex gap-2 flex-shrink-0 w-full sm:w-auto">
                  {/* Skill Selection */}
-                 <Select value={newTaskSkillId} onValueChange={(value: string) => setNewTaskSkillId(value)} disabled={!!activeTaskId}>
-                    <SelectTrigger className="flex-1 sm:w-[120px] osrs-inner-bevel text-xs" disabled={!!activeTaskId}>
+                 <Select value={newTaskSkillId} onValueChange={(value: string) => setNewTaskSkillId(value)} disabled={false}>
+                    <SelectTrigger className="flex-1 sm:w-[120px] osrs-inner-bevel text-xs" disabled={false}>
                         <SelectValue placeholder="Skill" />
                     </SelectTrigger>
                     <SelectContent className="osrs-box">
@@ -224,8 +224,8 @@ export default function StudyTracker({
                     </SelectContent>
                 </Select>
                 {/* Priority Selection */}
-                <Select value={newTaskPriority} onValueChange={(value: TaskPriority) => setNewTaskPriority(value)} disabled={!!activeTaskId}>
-                    <SelectTrigger className="w-[100px] osrs-inner-bevel text-xs" disabled={!!activeTaskId}>
+                <Select value={newTaskPriority} onValueChange={(value: TaskPriority) => setNewTaskPriority(value)} disabled={false}>
+                    <SelectTrigger className="w-[100px] osrs-inner-bevel text-xs" disabled={false}>
                         <SelectValue placeholder="Priority" />
                     </SelectTrigger>
                     <SelectContent className="osrs-box">
@@ -234,7 +234,7 @@ export default function StudyTracker({
                         <SelectItem value="high">High</SelectItem>
                     </SelectContent>
                 </Select>
-                <Button onClick={handleAddTask} aria-label="Add Task" className="text-sm px-3" disabled={!newTaskText.trim() || !!activeTaskId || !newTaskSkillId}>
+                <Button onClick={handleAddTask} aria-label="Add Task" className="text-sm px-3" disabled={!newTaskText.trim() || !newTaskSkillId}>
                     <Plus className="mr-1 h-3.5 w-3.5" strokeWidth={2.5} /> Add
                 </Button>
              </div>
@@ -243,14 +243,16 @@ export default function StudyTracker({
           {/* Task List */}
           <ul className="space-y-1.5 max-h-80 overflow-y-auto pr-1 osrs-inner-bevel bg-black/10 p-1.5 rounded-sm">
             {sortedTasks.length === 0 && <p className="text-muted-foreground text-center py-8 text-sm italic">Your quest log is empty. Add a task to begin!</p>}
-            {sortedTasks.map((task) => (
+            {sortedTasks.map((task) => {
+                const isTaskActive = activeTaskIds.includes(task.id); // Check if this task is active
+              return (
               <li
                 key={task.id}
                 className={cn(
                   "flex items-center justify-between p-1.5 rounded-sm border-l-4 transition-colors duration-150 bg-card/80 hover:bg-card",
                   getPriorityColor(task.priority),
                   task.completed ? 'border-muted/60 opacity-60 hover:opacity-80' : 'border-l',
-                  task.id === activeTaskId ? 'ring-1 ring-inset ring-accent/80 shadow-inner shadow-accent/10' : ''
+                  isTaskActive ? 'ring-1 ring-inset ring-accent/80 shadow-inner shadow-accent/10' : '' // Highlight if active
                 )}
               >
                  <div className="flex items-center gap-2 flex-1 min-w-0">
@@ -259,7 +261,7 @@ export default function StudyTracker({
                     checked={task.completed}
                     onCheckedChange={() => toggleTaskCompletion(task.id)}
                     aria-label={`Mark task ${task.text} as ${task.completed ? 'incomplete' : 'complete'}`}
-                    disabled={task.id === activeTaskId}
+                    disabled={isTaskActive} // Disable checkbox if task is active
                     className={cn(
                         "border-primary/50 data-[state=checked]:bg-primary data-[state=checked]:border-primary/80 data-[state=checked]:text-primary-foreground mt-0.5",
                         task.completed && "border-muted/80 data-[state=checked]:bg-muted data-[state=checked]:border-muted/80 data-[state=checked]:text-muted-foreground/60"
@@ -294,10 +296,10 @@ export default function StudyTracker({
                         className={cn(
                           "flex-1 truncate cursor-pointer text-sm font-medium",
                            task.completed ? 'line-through text-muted-foreground/70' : 'text-foreground hover:text-foreground/90',
-                            task.id === activeTaskId ? 'cursor-default' : 'cursor-pointer'
+                           isTaskActive ? 'cursor-default' : 'cursor-pointer' // Use isTaskActive here
                          )}
                         title={task.text}
-                        onDoubleClick={() => !task.completed && !(task.id === activeTaskId) && handleStartEditing(task)}
+                        onDoubleClick={() => !task.completed && !isTaskActive && handleStartEditing(task)} // Use isTaskActive here
                       >
                         {task.text}
                         {/* Optionally display associated skill */}
@@ -331,8 +333,8 @@ export default function StudyTracker({
                                    task.priority === 'medium' && 'text-accent/90',
                                    task.priority === 'low' && 'text-primary/80'
                                )} />
-                               <Select value={task.priority} onValueChange={(value: TaskPriority) => updateTaskPriority(task.id, value)} disabled={task.completed || !!activeTaskId}>
-                                   <SelectTrigger className="w-[25px] h-5 p-0 border-0 bg-transparent osrs-inner-bevel text-xs focus:ring-0 focus:ring-offset-0 focus:bg-muted/20" disabled={task.completed || !!activeTaskId}>
+                               <Select value={task.priority} onValueChange={(value: TaskPriority) => updateTaskPriority(task.id, value)} disabled={task.completed}>
+                                   <SelectTrigger className="w-[25px] h-5 p-0 border-0 bg-transparent osrs-inner-bevel text-xs focus:ring-0 focus:ring-offset-0 focus:bg-muted/20" disabled={task.completed}>
                                         <SelectValue placeholder="" />
                                    </SelectTrigger>
                                    <SelectContent className="osrs-box min-w-[80px]">
@@ -353,12 +355,12 @@ export default function StudyTracker({
 
                           {/* Timer & Edit Buttons */}
                           {!task.completed && (
-                            task.id === activeTaskId ? (
-                              <Button variant="outline" size="icon" onClick={stopTaskTimer} aria-label={`Pause timer for task ${task.text}`} className="border-accent/70 text-accent/90 hover:bg-accent/10 hover:text-accent h-6 w-6">
+                            isTaskActive ? ( // Use isTaskActive here
+                              <Button variant="outline" size="icon" onClick={() => stopTaskTimer(task.id)} aria-label={`Pause timer for task ${task.text}`} className="border-accent/70 text-accent/90 hover:bg-accent/10 hover:text-accent h-6 w-6">
                                 <Pause className="h-3.5 w-3.5" strokeWidth={2.5} />
                               </Button>
                             ) : (
-                              <Button variant="outline" size="icon" onClick={() => startTaskTimer(task.id)} aria-label={`Start timer for task ${task.text}`} className="border-primary/60 text-primary/90 hover:bg-primary/10 hover:text-primary h-6 w-6" disabled={!!activeTaskId}>
+                              <Button variant="outline" size="icon" onClick={() => startTaskTimer(task.id)} aria-label={`Start timer for task ${task.text}`} className="border-primary/60 text-primary/90 hover:bg-primary/10 hover:text-primary h-6 w-6" >
                                 <Play className="h-3.5 w-3.5" strokeWidth={2.5} />
                               </Button>
                             )
@@ -366,7 +368,7 @@ export default function StudyTracker({
 
                           {/* Edit Button */}
                            {!task.completed && ( // Only allow edit if not completed
-                              <Button variant="ghost" size="icon" onClick={() => handleStartEditing(task)} aria-label={`Edit task ${task.text}`} className="text-muted-foreground/70 hover:text-foreground hover:bg-muted/20 h-6 w-6" disabled={!!activeTaskId}>
+                              <Button variant="ghost" size="icon" onClick={() => handleStartEditing(task)} aria-label={`Edit task ${task.text}`} className="text-muted-foreground/70 hover:text-foreground hover:bg-muted/20 h-6 w-6" disabled={isTaskActive}>
                                  <Edit2 className="h-3.5 w-3.5" strokeWidth={2} />
                                </Button>
                            )}
@@ -374,7 +376,7 @@ export default function StudyTracker({
                           {/* Delete Button */}
                           <AlertDialog>
                             <AlertDialogTrigger asChild>
-                                <Button variant="ghost" size="icon" className="text-destructive/60 hover:text-destructive hover:bg-destructive/10 h-6 w-6" aria-label={`Delete task ${task.text}`} disabled={task.id === activeTaskId}>
+                                <Button variant="ghost" size="icon" className="text-destructive/60 hover:text-destructive hover:bg-destructive/10 h-6 w-6" aria-label={`Delete task ${task.text}`} disabled={isTaskActive}>
                                   <Trash2 className="h-3.5 w-3.5" strokeWidth={2} />
                                 </Button>
                             </AlertDialogTrigger>
@@ -397,7 +399,8 @@ export default function StudyTracker({
                    )}
                  </div>
               </li>
-            ))}
+              )
+            })}
           </ul>
         </CardContent>
       </Card>
@@ -411,4 +414,5 @@ declare module './study-tracker' {
         skillId?: string; // Optional: Associate task with a skill
     }
 }
-import { useEffect } from 'react'; // Import useEffect from 'react'
+// Remove redundant useEffect import at the end
+// import { useEffect } from 'react';
