@@ -539,7 +539,7 @@ const SidebarMenuButton = React.forwardRef<
   React.ComponentProps<"button"> & {
     asChild?: boolean
     isActive?: boolean
-    tooltip?: string | React.ComponentProps<typeof TooltipContent>
+    tooltip?: string | React.ReactNode // Changed type definition for tooltip
   } & VariantProps<typeof sidebarMenuButtonVariants>
 >(
   (
@@ -548,7 +548,7 @@ const SidebarMenuButton = React.forwardRef<
       isActive = false,
       variant = "default",
       size = "default",
-      tooltip: tooltipProp, // Rename prop to avoid conflict
+      tooltip, // Use the prop directly
       className,
       ...props
     },
@@ -557,39 +557,41 @@ const SidebarMenuButton = React.forwardRef<
     const Comp = asChild ? Slot : "button"
     const { isMobile, state } = useSidebar()
 
-    const button = (
-      <Comp
-        ref={ref}
-        data-sidebar="menu-button"
-        data-size={size}
-        data-active={isActive}
-        className={cn(sidebarMenuButtonVariants({ variant, size }), className)}
-        {...props}
-      />
-    )
+    // Render the base button element directly
+    const buttonElement = (
+       <Comp
+         ref={ref}
+         data-sidebar="menu-button"
+         data-size={size}
+         data-active={isActive}
+         className={cn(sidebarMenuButtonVariants({ variant, size }), className)}
+         {...props}
+       />
+    );
 
-    if (!tooltipProp) {
-      return button
+    // Conditionally wrap with Tooltip if tooltip prop is provided
+    if (tooltip) {
+      return (
+        <Tooltip>
+          <TooltipTrigger asChild>{buttonElement}</TooltipTrigger>
+          <TooltipContent
+             side="right"
+             align="center"
+             hidden={state !== "collapsed" || isMobile}
+          >
+            {/* Render tooltip content directly */}
+            {tooltip}
+          </TooltipContent>
+        </Tooltip>
+      );
     }
 
-    // Use a local variable for tooltip content props
-    const tooltipContentProps: Partial<React.ComponentProps<typeof TooltipContent>> = typeof tooltipProp === 'string' ? { children: tooltipProp } : tooltipProp;
-
-
-    return (
-      <Tooltip>
-        <TooltipTrigger asChild>{button}</TooltipTrigger>
-        <TooltipContent
-          side="right"
-          align="center"
-          hidden={state !== "collapsed" || isMobile}
-          {...tooltipContentProps} // Spread the processed props
-        />
-      </Tooltip>
-    )
+    // Return the button without tooltip if no tooltip prop is provided
+    return buttonElement;
   }
 )
 SidebarMenuButton.displayName = "SidebarMenuButton"
+
 
 const SidebarMenuAction = React.forwardRef<
   HTMLButtonElement,
