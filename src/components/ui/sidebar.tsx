@@ -1,4 +1,5 @@
 
+
 "use client"
 
 import * as React from "react"
@@ -30,9 +31,9 @@ const SIDEBAR_KEYBOARD_SHORTCUT = "b"
 type SidebarContext = {
   state: "expanded" | "collapsed"
   open: boolean
-  setOpen: (open: boolean) => void
+  setOpen: (value: boolean | ((prev: boolean) => boolean)) => void // Updated type
   openMobile: boolean
-  setOpenMobile: (open: boolean) => void
+  setOpenMobile: (value: boolean | ((prev: boolean) => boolean)) => void // Updated type
   isMobile: boolean
   toggleSidebar: () => void
 }
@@ -75,27 +76,35 @@ const SidebarProvider = React.forwardRef<
     // We use openProp and setOpenProp for control from outside the component.
     const [_open, _setOpen] = React.useState(defaultOpen)
     const open = openProp ?? _open
+
+    // Use functional update form to stabilize setOpen
     const setOpen = React.useCallback(
-      (value: boolean | ((value: boolean) => boolean)) => {
-        const openState = typeof value === "function" ? value(open) : value
-        if (setOpenProp) {
-          setOpenProp(openState)
-        } else {
-          _setOpen(openState)
-        }
+        (value: boolean | ((prev: boolean) => boolean)) => {
+            _setOpen(prev => {
+                const next = typeof value === 'function' ? value(prev) : value;
+                // Call the external handler if provided
+                if (setOpenProp) {
+                    setOpenProp(next);
+                }
+                // Set the cookie regardless of external handler
+                document.cookie =
+                    `${SIDEBAR_COOKIE_NAME}=${next}; path=/; max-age=${SIDEBAR_COOKIE_MAX_AGE}`;
+                return next; // Return the new state for _setOpen
+            });
+        },
+        [setOpenProp] // Now only depends on setOpenProp
+    );
 
-        // This sets the cookie to keep the sidebar state.
-        document.cookie = `${SIDEBAR_COOKIE_NAME}=${openState}; path=/; max-age=${SIDEBAR_COOKIE_MAX_AGE}`
-      },
-      [setOpenProp, open]
-    )
 
-    // Helper to toggle the sidebar.
+    // Use functional update form to stabilize toggleSidebar
     const toggleSidebar = React.useCallback(() => {
-      return isMobile
-        ? setOpenMobile((open) => !open)
-        : setOpen((open) => !open)
-    }, [isMobile, setOpen, setOpenMobile])
+        if (isMobile) {
+            setOpenMobile(prev => !prev);
+        } else {
+            setOpen(prev => !prev);
+        }
+    }, [isMobile, setOpenMobile, setOpen]); // Now depends on stable setters
+
 
     // Adds a keyboard shortcut to toggle the sidebar.
     React.useEffect(() => {
@@ -111,7 +120,7 @@ const SidebarProvider = React.forwardRef<
 
       window.addEventListener("keydown", handleKeyDown)
       return () => window.removeEventListener("keydown", handleKeyDown)
-    }, [toggleSidebar])
+    }, [toggleSidebar]) // toggleSidebar is now stable
 
     // We add a state so that we can do data-state="expanded" or "collapsed".
     // This makes it easier to style the sidebar with Tailwind classes.
@@ -534,8 +543,7 @@ const sidebarMenuButtonVariants = cva(
   }
 )
 
-// Removed React.memo
-const SidebarMenuButton = React.forwardRef<
+const SidebarMenuButton = React.memo(React.forwardRef<
   HTMLButtonElement,
   React.ComponentProps<"button"> & {
     asChild?: boolean
@@ -573,26 +581,21 @@ const SidebarMenuButton = React.forwardRef<
       </Comp>
     )
 
-    // Conditionally wrap with Tooltip
-    if (tooltipProp && !isMobile) {
-      return (
-        <Tooltip>
-          <TooltipTrigger asChild>{buttonElement}</TooltipTrigger>
-          <TooltipContent
-            side="right"
-            align="center"
-            hidden={state !== "collapsed"}
-          >
-            {tooltipProp}
-          </TooltipContent>
-        </Tooltip>
-      )
+    // Show a tooltip **only** when the sidebar is collapsed and we’re on desktop
+    if (!tooltipProp || isMobile || state !== "collapsed") {
+        return buttonElement;
     }
 
-    // Return the button without tooltip if no tooltip prop is provided or on mobile
-    return buttonElement
+    return (
+        <Tooltip>
+            <TooltipTrigger asChild>{buttonElement}</TooltipTrigger>
+            <TooltipContent side="right" align="center">
+                {tooltipProp}
+            </TooltipContent>
+        </Tooltip>
+    );
   }
-)
+));
 SidebarMenuButton.displayName = "SidebarMenuButton"
 
 
@@ -765,4 +768,5 @@ export {
   SidebarTrigger,
   useSidebar,
 }
+
 
