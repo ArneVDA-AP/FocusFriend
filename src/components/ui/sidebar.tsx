@@ -535,7 +535,8 @@ const sidebarMenuButtonVariants = cva(
 )
 
 // Wrap with React.memo to prevent unnecessary re-renders
-const SidebarMenuButton = React.memo(React.forwardRef<
+const SidebarMenuButton = React.memo(
+  React.forwardRef<
     HTMLButtonElement,
     React.ComponentProps<"button"> & {
       asChild?: boolean
@@ -562,7 +563,7 @@ const SidebarMenuButton = React.memo(React.forwardRef<
       // Base button component
       const buttonElement = (
         <Comp
-          ref={ref}
+          ref={ref} // Pass the ref directly to the component
           data-sidebar="menu-button"
           data-size={size}
           data-active={isActive}
@@ -766,4 +767,3 @@ export {
   SidebarTrigger,
   useSidebar,
 }
-
