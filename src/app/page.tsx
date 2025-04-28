@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
@@ -527,6 +528,14 @@ export default function Home() {
        setTimeout(() => toast({ title: "Settings Saved", className: "osrs-box border-primary text-foreground"}), 0);
    };
 
+    // --- Memoized Sidebar Click Handlers ---
+    const handleOverviewClick = useCallback(() => setActiveSection('overview'), []);
+    const handleStudyClick = useCallback(() => setActiveSection('study'), []);
+    const handlePomodoroClick = useCallback(() => setActiveSection('pomodoro'), []);
+    const handleLevelsClick = useCallback(() => setActiveSection('levels'), []);
+    const handleAchievementsClick = useCallback(() => setActiveSection('achievements'), []);
+    const handleSettingsClick = useCallback(() => setActiveSection('settings'), []);
+
 
   // --- Render ---
   return (
@@ -542,37 +551,37 @@ export default function Home() {
           <SidebarContent>
             <SidebarMenu>
               <SidebarMenuItem>
-                <SidebarMenuButton onClick={() => setActiveSection('overview')} isActive={activeSection === 'overview'} tooltip="Overview" className="text-sm">
+                <SidebarMenuButton onClick={handleOverviewClick} isActive={activeSection === 'overview'} tooltip="Overview" className="text-sm">
                   <LayoutDashboard strokeWidth={1.5}/>
                   <span className="group-data-[collapsible=icon]:hidden">Overview</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
               <SidebarMenuItem>
-                <SidebarMenuButton onClick={() => setActiveSection('study')} isActive={activeSection === 'study'} tooltip="Study Tracker" className="text-sm">
+                <SidebarMenuButton onClick={handleStudyClick} isActive={activeSection === 'study'} tooltip="Study Tracker" className="text-sm">
                   <ListTodo strokeWidth={1.5}/>
                   <span className="group-data-[collapsible=icon]:hidden">Study Tracker</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
               <SidebarMenuItem>
-                <SidebarMenuButton onClick={() => setActiveSection('pomodoro')} isActive={activeSection === 'pomodoro'} tooltip="Pomodoro Timer" className="text-sm">
+                <SidebarMenuButton onClick={handlePomodoroClick} isActive={activeSection === 'pomodoro'} tooltip="Pomodoro Timer" className="text-sm">
                   <Timer strokeWidth={1.5}/>
                   <span className="group-data-[collapsible=icon]:hidden">Pomodoro Timer</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
               <SidebarMenuItem>
-                <SidebarMenuButton onClick={() => setActiveSection('levels')} isActive={activeSection === 'levels'} tooltip="Level System" className="text-sm">
+                <SidebarMenuButton onClick={handleLevelsClick} isActive={activeSection === 'levels'} tooltip="Level System" className="text-sm">
                   <Award strokeWidth={1.5}/>
                   <span className="group-data-[collapsible=icon]:hidden">Level System</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
               <SidebarMenuItem>
-                <SidebarMenuButton onClick={() => setActiveSection('achievements')} isActive={activeSection === 'achievements'} tooltip="Achievements" className="text-sm">
+                <SidebarMenuButton onClick={handleAchievementsClick} isActive={activeSection === 'achievements'} tooltip="Achievements" className="text-sm">
                   <Trophy strokeWidth={1.5}/>
                   <span className="group-data-[collapsible=icon]:hidden">Achievements</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
                <SidebarMenuItem>
-                <SidebarMenuButton onClick={() => setActiveSection('settings')} isActive={activeSection === 'settings'} tooltip="Settings" className="text-sm">
+                <SidebarMenuButton onClick={handleSettingsClick} isActive={activeSection === 'settings'} tooltip="Settings" className="text-sm">
                   <SettingsIcon strokeWidth={1.5}/>
                   <span className="group-data-[collapsible=icon]:hidden">Settings</span>
                 </SidebarMenuButton>
@@ -637,7 +646,7 @@ export default function Home() {
                     initialDuration={pomodoroInitialDuration}
                     switchMode={switchPomodoroMode}
                     toggleTimer={togglePomodoroTimer}
-                    resetTimer={resetPomodoroTimer}
+                    resetTimer={resetTimer}
                 />
             )}
             {activeSection === 'levels' && isMounted && (
