@@ -1,6 +1,5 @@
 
 "use client";
-
 import React, {
   useState,
   useEffect,
@@ -19,10 +18,11 @@ import {
   SidebarMenu,
   SidebarMenuItem,
   SidebarMenuButton,
-  SidebarFooter,
-} from "@/components/ui/sidebar";
+  SidebarFooter
+} from "@/components/ui/sidebar-wrapper";
 
 import {
+  Flower,
   ListTodo,
   Timer,
   Award,
@@ -31,7 +31,7 @@ import {
   Settings as SettingsIcon,
   Gem,
   BookOpen,
-  Coffee,
+ Coffee,
   Lock,
   CheckCircle,
 } from "lucide-react";
@@ -40,6 +40,9 @@ import StudyTracker, {
   Task,
   TaskPriority,
 } from "@/components/study-tracker";
+import FocusCrystal, {
+  FocusCrystalProps
+} from '@/components/focus-crystal';
 import PomodoroTimer, {
   TimerMode,
 } from "@/components/pomodoro-timer";
@@ -57,20 +60,30 @@ import Achievements, {
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 
+// Import skill-related types and functions
+import { UserSkill, SkillDefinition, calculateXpToNextLevel as calculateSkillXpToNextLevel, completeTask as completeSkillTask } from '@/lib/skills';
+
+// Placeholder data - in a real app, this would come from an API or DB
+import defaultSkillsData from "@/data/skills.json";
+import defaultUserSkillsData from "@/data/user_skills.json";
+
+
 //--------------------------------------------------
 //  CONSTANTS & HELPERS
 //--------------------------------------------------
 
-const LOCAL_STORAGE_KEY_TASKS = "studyQuestTasks";
-const LOCAL_STORAGE_KEY_XP = "studyQuestXP";
-const LOCAL_STORAGE_KEY_LEVEL = "studyQuestLevel";
+const LOCAL_STORAGE_KEY_TASKS = "studyQuestTasks";//
+const LOCAL_STORAGE_KEY_XP = "studyQuestXP"; // Overall User XP
+const LOCAL_STORAGE_KEY_LEVEL = "studyQuestLevel"; // Overall User Level
+const LOCAL_STORAGE_KEY_USER_SKILLS = "studyQuestUserSkills"; // User's skill progress
 const LOCAL_STORAGE_KEY_POMODORO_SESSIONS = "focusFriendPomodoroSessions";
 const LOCAL_STORAGE_KEY_GROWN_CRYSTALS = "focusFriendGrownCrystals";
 
-const XP_PER_SECOND = 0.1;
-const XP_PER_TASK_COMPLETION = 15;
-const LEVEL_UP_BASE_XP = 100;
-const LEVEL_UP_FACTOR = 1.5;
+const XP_PER_SECOND = 0.1; // Overall XP per second of *any* tracked time
+const XP_PER_TASK_COMPLETION = 15; // Bonus Overall XP for completing any task
+const LEVEL_UP_BASE_XP = 100; // Base Overall XP needed for level 2
+const LEVEL_UP_FACTOR = 1.5; // Multiplier for overall level XP requirement
+
 
 const defaultSettings: PomodoroSettings = {
   workDuration: 25,
@@ -81,7 +94,8 @@ const defaultSettings: PomodoroSettings = {
   enableAutostart: false,
 };
 
-const calculateXpToNextLevel = (currentLevel: number): number =>
+// Calculate overall XP needed for the next level
+const calculateOverallXpToNextLevel = (currentLevel: number): number =>
   Math.floor(LEVEL_UP_BASE_XP * Math.pow(LEVEL_UP_FACTOR, currentLevel - 1));
 
 const formatTime = (totalSeconds: number): string => {
@@ -102,7 +116,7 @@ const formatTime = (totalSeconds: number): string => {
 const initialAchievementsData: Omit<Achievement, "unlocked" | "icon">[] = [
   {
     id: 1,
-    name: "First Task",
+     name: "First Task",
     description: "Complete your first study task.",
     unlockCondition: (stats) => stats.tasksCompleted >= 1,
   },
@@ -162,7 +176,7 @@ const initialAchievementsData: Omit<Achievement, "unlocked" | "icon">[] = [
   },
 ];
 
-//--------------------------------------------------
+//---------------------------------------------------
 //  PIXEL‑ART SCROLL ICON COMPONENT
 //--------------------------------------------------
 
@@ -180,6 +194,7 @@ const PixelScrollIcon = () => (
     <path
       style={{ imageRendering: "pixelated", fill: "hsl(var(--foreground)/0.8)" }}
       d="M7 5H17V6H16V7H15V8H9V7H8V6H7V5ZM7 18V19H17V18H16V17H15V16H9V17H8V18H7Z"
+
     />
   </svg>
 );
@@ -211,13 +226,17 @@ export default function Home() {
   //  CENTRAL DATA STATE
   //------------------------------------------------
   const [tasks, setTasks] = useState<Task[]>([]);
-  const [xp, setXp] = useState(0);
-  const [level, setLevel] = useState(1);
+  const [xp, setXp] = useState(0); // Overall User XP
+  const [level, setLevel] = useState(1); // Overall User Level
   const [xpToNextLevel, setXpToNextLevel] = useState(
-    calculateXpToNextLevel(1)
+    calculateOverallXpToNextLevel(1) // Overall XP needed
   );
   const [prevLevel, setPrevLevel] = useState(1);
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null); // Track active task timer
+
+  // Skill System State
+   const [skillDefinitions] = useState<SkillDefinition[]>(defaultSkillsData.skills); // Static definitions
+   const [userSkills, setUserSkills] = useState<UserSkill[]>([]); // User's progress in each skill
 
   // Pomodoro
   const [pomodoroSettings, setPomodoroSettings] = useState<PomodoroSettings>(
@@ -244,7 +263,7 @@ export default function Home() {
   >(null);
 
   //------------------------------------------------
-  //  DERIVED USER STATS
+  //  DERIVED USER STATS (Includes Overall Level)
   //------------------------------------------------
   const userStats: UserStats = useMemo(
     () => ({
@@ -254,12 +273,25 @@ export default function Home() {
         0
       ),
       pomodoroSessions: pomodoroSessionsCompleted,
-      level,
+      level, // Use overall user level here
       grownCrystals: grownCrystalsCount,
     }),
     [tasks, level, pomodoroSessionsCompleted, grownCrystalsCount]
   );
 
+   // Derived Skill Data for UI (e.g., for Overview)
+  const overviewSkillsData = useMemo(() => {
+       return userSkills.map(userSkill => {
+           const definition = skillDefinitions.find(def => def.id === userSkill.skill_id);
+           return {
+               ...userSkill,
+               name: definition?.name ?? 'Unknown Skill',
+               xpToNextLevel: calculateSkillXpToNextLevel(userSkill.current_level)
+           };
+       });
+   }, [userSkills, skillDefinitions]);
+
+  
   //------------------------------------------------
   //  ACHIEVEMENTS (computed from userStats)
   //------------------------------------------------
@@ -299,7 +331,7 @@ export default function Home() {
         longBreak: "longBreakDuration",
       };
       const minutes = currentSettings[map[mode]] ?? defaultSettings[map[mode]];
-      return Number(minutes ?? 0) * 60;
+      return Number(minutes ?? 0) * 60; // Ensure minutes is a number
     },
     [pomodoroSettings] // Depends only on pomodoroSettings state
   );
@@ -329,9 +361,10 @@ export default function Home() {
   }, [getPomodoroDuration, pomodoroSettings, pomodoroMode]);
 
 
-  // --- XP / LEVEL HELPERS ---
-  const addXP = useCallback(
+  // --- OVERALL XP / LEVEL HELPERS ---
+  const addOverallXP = useCallback(
     (amount: number) => {
+      if (amount <= 0) return; // Avoid unnecessary updates
       setXp((prevXp) => {
         let newTotalXp = prevXp + amount;
         let currentLvl = level; // Use level state directly
@@ -341,7 +374,7 @@ export default function Home() {
         while (newTotalXp >= requiredXp) {
           newTotalXp -= requiredXp;
           currentLvl += 1;
-          requiredXp = calculateXpToNextLevel(currentLvl);
+          requiredXp = calculateOverallXpToNextLevel(currentLvl); // Use overall calculator
           leveledUp = true;
         }
 
@@ -349,7 +382,7 @@ export default function Home() {
           // Queue state updates together for batching
           setLevel(currentLvl);
           setXpToNextLevel(requiredXp);
-          // Toast is a side effect, handle it after state updates (in useEffect)
+          // Toast is a side effect, handle it after state updates (in useEffect below)
         }
 
         return newTotalXp; // Return the final XP value for this state update
@@ -357,6 +390,21 @@ export default function Home() {
     },
     [level, xpToNextLevel] // Depend only on level and xpToNextLevel state
   );
+
+  // --- LEVEL UP TOAST EFFECT (for overall level) ---
+   useEffect(() => {
+     if (isMounted && level > prevLevel) {
+       // Use setTimeout to ensure toast appears after render cycle completes
+       setTimeout(() => {
+        toast({
+           title: "Level Up!",
+           description: `Congratulations! You've reached Overall Level ${level}!`,
+           className: "osrs-box border-accent text-foreground",
+         });
+       }, 0);
+       setPrevLevel(level); // Update prevLevel *after* showing the toast
+     }
+   }, [level, prevLevel, isMounted, toast]); // Depend on level, prevLevel, isMounted, and toast
 
 
   // --- TASK TIMER HELPERS ---
@@ -379,20 +427,6 @@ export default function Home() {
           stopTaskTimer(); // Stop the previous task timer
       }
 
-      // --- Removed logic to stop Pomodoro timer ---
-      // if (pomodoroIsActive && pomodoroMode === 'work') {
-      //     setPomodoroIsActive(false); // Pause Pomodoro directly
-      //     if (pomodoroTimerIntervalRef.current) {
-      //       clearInterval(pomodoroTimerIntervalRef.current);
-      //       pomodoroTimerIntervalRef.current = null;
-      //     }
-      //     toast({
-      //         title: "Pomodoro Paused",
-      //         description: "Task timer started, Pomodoro paused.",
-      //         variant: "default",
-      //     });
-      // }
-
       setActiveTaskId(taskId); // Set the active task ID
       // Update tasks state immutably
       setTasks((prevTasks) => prevTasks.map((t) => ({ ...t, isActive: t.id === taskId })));
@@ -402,7 +436,7 @@ export default function Home() {
           prevTasks.map((t) => {
             if (t.id === taskId && t.isActive) {
               const newTime = (t.studyTime ?? 0) + 1;
-              addXP(XP_PER_SECOND); // Call the stable addXP function
+              addOverallXP(XP_PER_SECOND); // Add OVERALL XP per second
               return { ...t, studyTime: newTime };
             }
             return t;
@@ -410,7 +444,7 @@ export default function Home() {
         );
       }, 1000);
     },
-    [addXP, stopTaskTimer, activeTaskId] // Removed pomodoro dependencies
+    [addOverallXP, stopTaskTimer, activeTaskId]
   );
 
    // --- POMODORO MAIN LOGIC ---
@@ -423,18 +457,7 @@ export default function Home() {
           }
       } else {
           // Starting
-          // --- Removed logic to stop Task timer ---
-          // if (activeTaskId) {
-          //     stopTaskTimer();
-          //     toast({
-          //         title: "Task Timer Stopped",
-          //         description: "Pomodoro started, active task timer stopped.",
-          //         variant: "default",
-          //          className: "osrs-box"
-          //     });
-          // }
-
-          // Reset Pomodoro timer if timeLeft is 0 before starting
+           // Reset Pomodoro timer if timeLeft is 0 before starting
            if (pomodoroTimeLeft <= 0) {
                resetTimer(pomodoroMode); // Reset to current mode's duration
            }
@@ -450,9 +473,9 @@ export default function Home() {
                       if (pomodoroMode === 'work') {
                          setPomodoroSessionsCompleted(s => s + 1);
                          setGrownCrystalsCount(c => c + 1); // Increment grown crystals
-                         addXP(50); // Bonus XP for completing a work session
+                         addOverallXP(50); // Bonus OVERALL XP for completing a work session
                          toast({ title: "Focus Session Complete!", description: "Time for a break. Crystal grown!", className: "osrs-box border-accent text-foreground" });
-
+                        
                          // Determine next mode based on settings
                          const sessions = pomodoroSessionsCompleted + 1; // Use the upcoming count
                          const nextMode = sessions % pomodoroSettings.sessionsBeforeLongBreak === 0 ? 'longBreak' : 'shortBreak';
@@ -474,17 +497,16 @@ export default function Home() {
                       }
                       return 0; // Timer finished
                   }
-                   // Add XP during active work sessions only
+                   // Add OVERALL XP during active work sessions only
                    if (pomodoroMode === 'work') {
-                       // Add XP per *second* for Pomodoro work sessions
-                       addXP(XP_PER_SECOND); // Use the same rate as task timer for consistency
+                       addOverallXP(XP_PER_SECOND);
                    }
                   return prevTime - 1;
               });
           }, 1000);
       }
       setPomodoroIsActive((prev) => !prev); // Toggle active state
-  }, [pomodoroIsActive, pomodoroTimeLeft, pomodoroMode, pomodoroSessionsCompleted, pomodoroSettings, addXP, toast, switchPomodoroMode, resetTimer]); // Removed activeTaskId, stopTaskTimer
+  }, [pomodoroIsActive, pomodoroTimeLeft, pomodoroMode, pomodoroSessionsCompleted, pomodoroSettings, addOverallXP, toast, switchPomodoroMode, resetTimer]);
 
 
   // --- TASK MANAGEMENT FUNCTIONS ---
@@ -495,62 +517,77 @@ export default function Home() {
           text: text.trim(),
           completed: false,
           studyTime: 0,
-          isActive: false, // Newly added task is not active
+          isActive: false,
           priority: priority,
           isEditing: false,
+          skillId: 'reading', // Default skill or implement selection
       };
-      setTasks((prev) => [newTask, ...prev]); // Add to the beginning
+      setTasks((prev) => [newTask, ...prev]);
   }, []); // No external dependencies
 
   const toggleTaskCompletion = useCallback((id: string) => {
-      setTasks((prev) =>
-          prev.map((task) => {
+      setTasks((prevTasks) => {
+          const updatedTasks = prevTasks.map((task) => {
               if (task.id === id) {
                   const wasCompleted = task.completed;
                   const isNowComplete = !wasCompleted;
-                  // Add/remove XP only when toggling
+
                   if (isNowComplete) {
-                      addXP(XP_PER_TASK_COMPLETION); // Use stable addXP
-                  } else {
-                      // Optional: Remove XP if uncompleted? Current setup doesn't.
-                      // setXp(xp => Math.max(0, xp - XP_PER_TASK_COMPLETION));
+                      addOverallXP(XP_PER_TASK_COMPLETION); // Add overall XP
+
+                      // Award Skill XP - Find associated skill and award XP
+                      const skillIdToAward = task.skillId || 'reading'; // Use task's skill or default
+                       const timeSpent = task.studyTime || 0; // Use recorded time
+                       // Call the imported skill completion function
+                       // It requires the current userSkills state
+                       setUserSkills(currentSkills =>
+                         completeSkillTask('user123', task.id, skillIdToAward, timeSpent, currentSkills)
+                       );
+
+                      // If completing an active task, stop its timer
+                      if (task.isActive) {
+                          stopTaskTimer();
+                      }
                   }
-                  // If completing an active task, stop its timer
-                  if (isNowComplete && task.isActive) {
-                     stopTaskTimer(); // Use stable stopTaskTimer
-                  }
-                  return { ...task, completed: isNowComplete, isActive: false }; // Ensure isActive is false when completed/uncompleted
+                   // Ensure isActive is false when completed/uncompleted
+                   return { ...task, completed: isNowComplete, isActive: false };
               }
               return task;
-          })
-      );
-  }, [addXP, stopTaskTimer]); // Use stable addXP and stopTaskTimer
+          });
+          return updatedTasks; // Return the new array
+      });
+  }, [addOverallXP, stopTaskTimer, setUserSkills]); // Add setUserSkills dependency
 
-  const deleteTask = useCallback((id: string) => {
+
+ const deleteTask = useCallback((id: string) => {
       setTasks((prev) => prev.filter((task) => {
-           // If deleting the active task, stop the timer
-           if (task.id === id && task.id === activeTaskId) { // Compare with activeTaskId state
-               stopTaskTimer(); // Use stable stopTaskTimer
+           if (task.id === id && task.id === activeTaskId) {
+               stopTaskTimer();
            }
           return task.id !== id
       }));
-  }, [activeTaskId, stopTaskTimer]); // Depend on activeTaskId state and stable stopTaskTimer
+  }, [activeTaskId, stopTaskTimer]);
 
-  const editTask = useCallback((id: string, newText: string): boolean => {
+  const editTask = useCallback((id: string, newText: string, newSkillId?: string): boolean => {
       if (!newText.trim()) {
            toast({
              title: "Error",
              description: "Task text cannot be empty.",
            });
-          return false; // Indicate failure
+          return false;
       }
       setTasks((prev) =>
           prev.map((task) =>
-              task.id === id ? { ...task, text: newText.trim(), isEditing: false } : task
+              task.id === id ? {
+                  ...task,
+                  text: newText.trim(),
+                  skillId: newSkillId ?? task.skillId, // Update skill if provided
+                  isEditing: false,
+                  } : task
           )
       );
-      return true; // Indicate success
-  }, [toast]); // Depends on stable toast
+      return true;
+  }, [toast]);
 
  const updateTaskPriority = useCallback((id: string, priority: TaskPriority) => {
    setTasks((prev) =>
@@ -558,42 +595,33 @@ export default function Home() {
        task.id === id ? { ...task, priority: priority } : task
      )
    );
- }, []); // No external dependencies
+ }, []);
 
- const setTaskEditing = useCallback((id: string, isEditing: boolean) => {
+ const setTaskEditing = useCallback((id: string, isEditing: boolean)=> {
    setTasks((prev) =>
      prev.map((task) =>
        task.id === id ? { ...task, isEditing: isEditing } : task
      )
    );
- }, []); // No external dependencies
+ }, []);
 
   // --- SETTINGS UPDATE FUNCTION ---
-  // This function is called only when the "Save Settings" button is clicked in the Settings component
   const updateSettings = useCallback((newSettings: PomodoroSettings, manualSave: boolean) => {
-      // Always update the local state for immediate UI feedback (already done in Settings component)
-      // setPomodoroSettings(newSettings); // This would cause the error if called directly from Settings render
-
-      // Only save to localStorage on manual save (which is always true when this is called)
       if (manualSave) {
-          setPomodoroSettings(newSettings); // Update the parent state *only* on manual save
+          setPomodoroSettings(newSettings);
           localStorage.setItem(FOCUSFRIEND_SETTINGS_KEY, JSON.stringify(newSettings));
           toast({
             title: "Settings Saved",
             description: "Your Pomodoro settings have been updated.",
              className: "osrs-box"
           });
-           // Update the timer *after* saving and updating state,
-           // if it's not active
-           if (!pomodoroIsActive) {
+          if (!pomodoroIsActive) {
                const currentModeDuration = getPomodoroDuration(pomodoroMode, newSettings);
                setPomodoroTimeLeft(currentModeDuration);
                setPomodoroInitialDuration(currentModeDuration);
            }
       }
-       // Note: Automatic updates for timer display while editing settings are handled within the Settings component's local state.
-       // The parent state (and thus the timer logic) only updates upon clicking "Save".
-  }, [pomodoroIsActive, pomodoroMode, getPomodoroDuration, toast]); // Dependencies
+  }, [pomodoroIsActive, pomodoroMode, getPomodoroDuration, toast]);
 
 
   //------------------------------------------------
@@ -613,36 +641,60 @@ export default function Home() {
   //  MOUNT‑TIME: LOAD FROM LOCAL STORAGE
   //------------------------------------------------
   useEffect(() => {
-    // --- tasks
-    const stored = localStorage.getItem(LOCAL_STORAGE_KEY_TASKS);
-    if (stored) {
+    // --- tasks ---
+    const storedTasks = localStorage.getItem(LOCAL_STORAGE_KEY_TASKS);
+    if (storedTasks) {
       try {
-        const parsed: Omit<Task, "isActive" | "isEditing">[] = JSON.parse(stored);
+        const parsed: Omit<Task, "isActive" | "isEditing">[] = JSON.parse(storedTasks);
         setTasks(
           parsed.map((t) => ({
             ...t,
-            isActive: false, // Initialize isActive to false on load
-            isEditing: false, // Initialize isEditing to false on load
+            isActive: false,
+            isEditing: false,
             priority: t.priority || "medium",
+             skillId: t.skillId || 'reading', // Ensure skillId exists
           }))
         );
       } catch (err) {
         console.error("Failed to parse tasks", err);
+        setTasks([]); // Set to empty array on error
       }
     } else {
-       setTasks([]); // Ensure tasks is an empty array if nothing is stored
+       setTasks([]);
     }
 
-    // --- xp + level
+    // --- OVERALL xp + level ---
     const storedXp = localStorage.getItem(LOCAL_STORAGE_KEY_XP);
     const storedLevel = localStorage.getItem(LOCAL_STORAGE_KEY_LEVEL);
     const initialLevel = storedLevel ? parseInt(storedLevel, 10) : 1;
     setXp(storedXp ? parseFloat(storedXp) : 0);
     setLevel(initialLevel);
     setPrevLevel(initialLevel);
-    setXpToNextLevel(calculateXpToNextLevel(initialLevel));
+    setXpToNextLevel(calculateOverallXpToNextLevel(initialLevel));
 
-    // --- pomodoro sessions + crystals
+     // --- USER SKILLS ---
+     const storedUserSkills = localStorage.getItem(LOCAL_STORAGE_KEY_USER_SKILLS);
+     if (storedUserSkills) {
+         try {
+             const parsedSkills: UserSkill[] = JSON.parse(storedUserSkills);
+             // Basic validation: Ensure it's an array
+             if (Array.isArray(parsedSkills)) {
+                  // You might add more validation here, e.g., check required fields
+                 setUserSkills(parsedSkills);
+             } else {
+                  console.error("Stored user skills is not an array, using default.");
+                  setUserSkills(defaultUserSkillsData.user_skills); // Fallback
+             }
+         } catch (err) {
+             console.error("Failed to parse user skills, using default.", err);
+             setUserSkills(defaultUserSkillsData.user_skills); // Fallback
+         }
+     } else {
+         // Initialize with default skills if nothing is stored
+         setUserSkills(defaultUserSkillsData.user_skills);
+     }
+
+    // --- pomodoro sessions + crystals ---
     const storedPomodoro = localStorage.getItem(
       LOCAL_STORAGE_KEY_POMODORO_SESSIONS
     );
@@ -650,7 +702,7 @@ export default function Home() {
     setPomodoroSessionsCompleted(storedPomodoro ? parseInt(storedPomodoro, 10) : 0);
     setGrownCrystalsCount(storedCrystals ? parseInt(storedCrystals, 10) : 0);
 
-    // --- settings
+    // --- settings ---
     const storedSettings = localStorage.getItem(FOCUSFRIEND_SETTINGS_KEY);
     let loadedSettings = defaultSettings;
     if (storedSettings) {
@@ -659,7 +711,6 @@ export default function Home() {
         loadedSettings = { ...defaultSettings, ...parsed }; // Ensure all keys are present
       } catch (err) {
         console.error("Failed to parse settings", err);
-        // Use default settings if parsing fails
       }
     }
     setPomodoroSettings(loadedSettings);
@@ -684,11 +735,18 @@ export default function Home() {
   useEffect(() => {
     if (!isMounted) return;
 
-    // Save only non-UI state for tasks
+    // Save tasks (stripped)
     const strippedTasks = tasks.map(({ isActive, isEditing, ...rest }) => rest);
     localStorage.setItem(LOCAL_STORAGE_KEY_TASKS, JSON.stringify(strippedTasks));
+
+    // Save overall XP and Level
     localStorage.setItem(LOCAL_STORAGE_KEY_XP, xp.toString());
     localStorage.setItem(LOCAL_STORAGE_KEY_LEVEL, level.toString());
+
+    // Save User Skills
+    localStorage.setItem(LOCAL_STORAGE_KEY_USER_SKILLS, JSON.stringify(userSkills));
+
+    // Save Pomodoro stats
     localStorage.setItem(
       LOCAL_STORAGE_KEY_POMODORO_SESSIONS,
       pomodoroSessionsCompleted.toString()
@@ -699,39 +757,18 @@ export default function Home() {
     );
     // Settings are saved manually via the updateSettings callback
 
-  }, [isMounted, tasks, xp, level, pomodoroSessionsCompleted, grownCrystalsCount]); // Removed prevLevel, toast dependencies
+  }, [isMounted, tasks, xp, level, userSkills, pomodoroSessionsCompleted, grownCrystalsCount]);
+
 
    //------------------------------------------------
-   //  LEVEL UP TOAST EFFECT
+   //  POMODORO SETTINGS EFFECT (for timer display when not active)
    //------------------------------------------------
-   useEffect(() => {
-     if (isMounted && level > prevLevel) {
-       // Use setTimeout to ensure toast appears after render cycle completes
-       setTimeout(() => {
-         toast({
-           title: "Level Up!",
-           description: `Congratulations! You've reached Level ${level}!`,
-           className: "osrs-box border-accent text-foreground",
-         });
-       }, 0);
-       setPrevLevel(level); // Update prevLevel *after* showing the toast
-     }
-   }, [level, prevLevel, isMounted, toast]); // Depend on level, prevLevel, isMounted, and toast
-
-
-  //------------------------------------------------
-  //  POMODORO SETTINGS EFFECT (for timer display when not active)
-  //------------------------------------------------
-   // Effect to update timer duration if settings change *in the parent state*
-   // and the timer is NOT active
    useEffect(() => {
      if (!pomodoroIsActive) {
        const newDuration = getPomodoroDuration(pomodoroMode, pomodoroSettings);
        setPomodoroTimeLeft(newDuration);
        setPomodoroInitialDuration(newDuration);
      }
-     // This effect runs when pomodoroSettings state in Home changes,
-     // which happens only when the user clicks "Save Settings".
    }, [pomodoroSettings, pomodoroMode, pomodoroIsActive, getPomodoroDuration]);
 
 
@@ -826,7 +863,7 @@ export default function Home() {
           <SidebarFooter className="group-data-[collapsible=icon]:hidden">
             <p className="text-xs text-muted-foreground text-center opacity-70">
               OSRS Inspired
-            </p>
+            </p>          
           </SidebarFooter>
         </Sidebar>
 
@@ -840,7 +877,7 @@ export default function Home() {
                 {activeSection === "overview" && "Dashboard Overview"}
                 {activeSection === "study" && "Study Task Manager"}
                 {activeSection === "pomodoro" && "Pomodoro Timer"}
-                {activeSection === "levels" && "Level Progression"}
+                {activeSection === "levels" && "Overall Progression"}
                 {activeSection === "achievements" && "Achievements Log"}
                 {activeSection === "settings" && "Pomodoro Settings"}
               </h2>
@@ -848,23 +885,28 @@ export default function Home() {
             <div />
           </div>
 
-          {/* ---------- main grid ---------- */}
           <div className="grid grid-cols-1 gap-4 osrs-box p-3 md:p-4">
             {activeSection === "overview" && isMounted && (
+              <>
+              {console.log("Overview is", Overview)}
               <Overview
-                stats={userStats}
-                xp={xp}
-                xpToNextLevel={xpToNextLevel}
-                tasks={tasks}
+              stats={userStats}
+              xp={xp}
+              xpToNextLevel={xpToNextLevel}
+              tasks={tasks}
+              skills={overviewSkillsData}
               />
+              </>
             )}
-
+            
             {activeSection === "study" && isMounted && (
               <StudyTracker
                 tasks={tasks}
+                // Pass overall XP/Level for display (optional, could show skill progress instead)
                 xp={xp}
                 level={level}
                 xpToNextLevel={xpToNextLevel}
+                // Task management functions
                 addTask={addTask}
                 toggleTaskCompletion={toggleTaskCompletion}
                 deleteTask={deleteTask}
@@ -873,10 +915,12 @@ export default function Home() {
                 startTaskTimer={startTaskTimer}
                 stopTaskTimer={stopTaskTimer}
                 setTaskEditing={setTaskEditing}
-                activeTaskId={activeTaskId} // Pass activeTaskId
+                activeTaskId={activeTaskId}
+                // Provide skill definitions for selection
+                skillDefinitions={skillDefinitions}
               />
             )}
-
+          
             {activeSection === "pomodoro" && isMounted && (
               <PomodoroTimer
                 settings={pomodoroSettings}
@@ -887,24 +931,28 @@ export default function Home() {
                 grownCrystalsCount={grownCrystalsCount}
                 initialDuration={pomodoroInitialDuration}
                 switchMode={switchPomodoroMode}
+                // Pass isGrowing prop
+                isGrowing={pomodoroMode === 'work' && pomodoroIsActive}
+                
                 toggleTimer={togglePomodoroTimer}
-                resetTimer={() => resetTimer()} // Pass resetTimer correctly
+                resetTimer={() => resetTimer()}
               />
             )}
-
+                        
             {activeSection === "levels" && isMounted && (
+               // Display Overall Level progression
               <LevelSystem xp={xp} level={level} xpToNextLevel={xpToNextLevel} />
             )}
-
+                        
             {activeSection === "achievements" && isMounted && (
               <Achievements userStats={userStats} achievements={achievements} />
             )}
-
+                        
+            
             {activeSection === "settings" && isMounted && (
-              <Settings
+             <Settings
                 settings={pomodoroSettings}
-                // Remove onSettingsChange prop
-                onManualSave={updateSettings} // Pass the updateSettings handler for explicit save
+                onManualSave={updateSettings}
               />
             )}
 
@@ -916,3 +964,9 @@ export default function Home() {
   );
 }
 
+// Add missing skillId property to Task interface
+declare module './study-tracker' {
+    interface Task {
+        skillId?: string; // Optional: Associate task with a skill
+    }
+}
