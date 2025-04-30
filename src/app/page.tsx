@@ -334,36 +334,37 @@ export default function Home() {
 
 
   // --- OVERALL XP / LEVEL HELPERS ---
-  const addOverallXP = useCallback(
-    (amount: number, source: string) => { // Add source parameter
-      if (amount <= 0) return;
-      setXp((prevXp) => {
-        let newTotalXp = prevXp + amount;
-        let currentLvl = level;
-        let requiredXp = xpToNextLevel;
-        let leveledUp = false;
+   const addOverallXP = useCallback(
+       (amount: number, source: string) => {
+           if (amount <= 0) return;
 
-        while (newTotalXp >= requiredXp) {
-          newTotalXp -= requiredXp;
-          currentLvl += 1;
-          requiredXp = calculateOverallXpToNextLevel(currentLvl);
-          leveledUp = true;
-        }
+           // Update XP and handle level up
+           setXp((prevXp) => {
+               let newTotalXp = prevXp + amount;
+               let currentLvl = level;
+               let requiredXp = xpToNextLevel;
+               let leveledUp = false;
 
-        if (leveledUp) {
-          setLevel(currentLvl);
-          setXpToNextLevel(requiredXp);
-          // Toast handled in useEffect
-        }
+               while (newTotalXp >= requiredXp) {
+                   newTotalXp -= requiredXp;
+                   currentLvl += 1;
+                   requiredXp = calculateOverallXpToNextLevel(currentLvl);
+                   leveledUp = true;
+               }
 
-        // Add XP event to history
-        addXPEvent(source, Math.round(amount)); // Use the source description
+               if (leveledUp) {
+                   setLevel(currentLvl);
+                   setXpToNextLevel(requiredXp);
+               }
 
-        return newTotalXp;
-      });
-    },
-    [level, xpToNextLevel, addXPEvent] // Add addXPEvent dependency
-  );
+               return newTotalXp;
+           });
+
+           // Add XP event to history AFTER state update is queued
+           addXPEvent(source, Math.round(amount));
+       },
+       [level, xpToNextLevel, addXPEvent]
+   );
 
 
   // --- TASK TIMER HELPERS ---
@@ -381,11 +382,13 @@ export default function Home() {
   // Now define startTaskTimer
   const startTaskTimer = useCallback(
     (taskId: string) => {
-      // Don't allow starting a new timer if another task timer is already active
-      // if (activeTaskId && activeTaskId !== taskId) {
-      //     toast({ title: "Timer Active", description: `Another task timer is already running.` });
-      //     return;
-      // }
+      // If a task timer is already running for a DIFFERENT task, stop it first
+      if (activeTaskId && activeTaskId !== taskId) {
+           stopTaskTimer(activeTaskId);
+       } else if (activeTaskId === taskId) {
+           // If trying to start the timer for the task that is already active, do nothing
+           return;
+       }
 
        // Allow starting if pomodoro timer is active
       setActiveTaskId(taskId); // Set the active task ID
@@ -406,7 +409,7 @@ export default function Home() {
         );
       }, 1000);
     },
-    [addOverallXP, toast, activeTaskId] // Removed stopTaskTimer dependency
+    [addOverallXP, activeTaskId, stopTaskTimer] // Added stopTaskTimer dependency
   );
 
    // --- POMODORO MAIN LOGIC ---
