@@ -56,6 +56,7 @@ import Achievements, {
 
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
+import useXP from '@/hooks/use-xp'; // Import the useXP hook
 
 //--------------------------------------------------
 //  CONSTANTS & HELPERS
@@ -81,8 +82,8 @@ const defaultSettings: PomodoroSettings = {
   enableAutostart: false,
 };
 
-const calculateXpToNextLevel = (currentLevel: number): number =>
-  Math.floor(LEVEL_UP_BASE_XP * Math.pow(LEVEL_UP_FACTOR, currentLevel - 1));
+// Use the overall XP calculation function from utils
+import { calculateXpToNextLevel as calculateOverallXpToNextLevel } from "@/lib/utils";
 
 const formatTime = (totalSeconds: number): string => {
   const hours = Math.floor(totalSeconds / 3600);
@@ -214,7 +215,7 @@ export default function Home() {
   const [xp, setXp] = useState(0);
   const [level, setLevel] = useState(1);
   const [xpToNextLevel, setXpToNextLevel] = useState(
-    calculateXpToNextLevel(1)
+    calculateOverallXpToNextLevel(1)
   );
   const [prevLevel, setPrevLevel] = useState(1);
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null); // Track active task timer
@@ -242,6 +243,9 @@ export default function Home() {
   const pomodoroTimerIntervalRef = useRef<
     ReturnType<typeof setInterval> | null
   >(null);
+
+  // XP History Hook
+  const { xpHistory, addXPEvent } = useXP(); // Get the hook's state and function
 
   //------------------------------------------------
   //  DERIVED USER STATS
@@ -329,33 +333,36 @@ export default function Home() {
   }, [getPomodoroDuration, pomodoroSettings, pomodoroMode]);
 
 
-  // --- XP / LEVEL HELPERS ---
-  const addXP = useCallback(
-    (amount: number) => {
+  // --- OVERALL XP / LEVEL HELPERS ---
+  const addOverallXP = useCallback(
+    (amount: number, source: string) => { // Add source parameter
+      if (amount <= 0) return;
       setXp((prevXp) => {
         let newTotalXp = prevXp + amount;
-        let currentLvl = level; // Use level state directly
-        let requiredXp = xpToNextLevel; // Use xpToNextLevel state directly
+        let currentLvl = level;
+        let requiredXp = xpToNextLevel;
         let leveledUp = false;
 
         while (newTotalXp >= requiredXp) {
           newTotalXp -= requiredXp;
           currentLvl += 1;
-          requiredXp = calculateXpToNextLevel(currentLvl);
+          requiredXp = calculateOverallXpToNextLevel(currentLvl);
           leveledUp = true;
         }
 
         if (leveledUp) {
-          // Queue state updates together for batching
           setLevel(currentLvl);
           setXpToNextLevel(requiredXp);
-          // Toast is a side effect, handle it after state updates (in useEffect)
+          // Toast handled in useEffect
         }
 
-        return newTotalXp; // Return the final XP value for this state update
+        // Add XP event to history
+        addXPEvent(source, Math.round(amount)); // Use the source description
+
+        return newTotalXp;
       });
     },
-    [level, xpToNextLevel] // Depend only on level and xpToNextLevel state
+    [level, xpToNextLevel, addXPEvent] // Add addXPEvent dependency
   );
 
 
@@ -379,20 +386,6 @@ export default function Home() {
           stopTaskTimer(); // Stop the previous task timer
       }
 
-      // --- Removed logic to stop Pomodoro timer ---
-      // if (pomodoroIsActive && pomodoroMode === 'work') {
-      //     setPomodoroIsActive(false); // Pause Pomodoro directly
-      //     if (pomodoroTimerIntervalRef.current) {
-      //       clearInterval(pomodoroTimerIntervalRef.current);
-      //       pomodoroTimerIntervalRef.current = null;
-      //     }
-      //     toast({
-      //         title: "Pomodoro Paused",
-      //         description: "Task timer started, Pomodoro paused.",
-      //         variant: "default",
-      //     });
-      // }
-
       setActiveTaskId(taskId); // Set the active task ID
       // Update tasks state immutably
       setTasks((prevTasks) => prevTasks.map((t) => ({ ...t, isActive: t.id === taskId })));
@@ -402,7 +395,8 @@ export default function Home() {
           prevTasks.map((t) => {
             if (t.id === taskId && t.isActive) {
               const newTime = (t.studyTime ?? 0) + 1;
-              addXP(XP_PER_SECOND); // Call the stable addXP function
+              // Add overall XP per second from Task Timer
+              addOverallXP(XP_PER_SECOND, `Task: ${t.text.substring(0, 15)}...`);
               return { ...t, studyTime: newTime };
             }
             return t;
@@ -410,7 +404,7 @@ export default function Home() {
         );
       }, 1000);
     },
-    [addXP, stopTaskTimer, activeTaskId] // Removed pomodoro dependencies
+    [addOverallXP, stopTaskTimer, activeTaskId]
   );
 
    // --- POMODORO MAIN LOGIC ---
@@ -423,18 +417,7 @@ export default function Home() {
           }
       } else {
           // Starting
-          // --- Removed logic to stop Task timer ---
-          // if (activeTaskId) {
-          //     stopTaskTimer();
-          //     toast({
-          //         title: "Task Timer Stopped",
-          //         description: "Pomodoro started, active task timer stopped.",
-          //         variant: "default",
-          //          className: "osrs-box"
-          //     });
-          // }
-
-          // Reset Pomodoro timer if timeLeft is 0 before starting
+           // Reset Pomodoro timer if timeLeft is 0 before starting
            if (pomodoroTimeLeft <= 0) {
                resetTimer(pomodoroMode); // Reset to current mode's duration
            }
@@ -450,7 +433,8 @@ export default function Home() {
                       if (pomodoroMode === 'work') {
                          setPomodoroSessionsCompleted(s => s + 1);
                          setGrownCrystalsCount(c => c + 1); // Increment grown crystals
-                         addXP(50); // Bonus XP for completing a work session
+                         // Bonus OVERALL XP for completing a work session
+                         addOverallXP(50, 'Pomodoro Session');
                          toast({ title: "Focus Session Complete!", description: "Time for a break. Crystal grown!", className: "osrs-box border-accent text-foreground" });
 
                          // Determine next mode based on settings
@@ -474,17 +458,17 @@ export default function Home() {
                       }
                       return 0; // Timer finished
                   }
-                   // Add XP during active work sessions only
+                   // Add OVERALL XP during active work sessions only
                    if (pomodoroMode === 'work') {
                        // Add XP per *second* for Pomodoro work sessions
-                       addXP(XP_PER_SECOND); // Use the same rate as task timer for consistency
+                       addOverallXP(XP_PER_SECOND, 'Pomodoro Focus');
                    }
                   return prevTime - 1;
               });
           }, 1000);
       }
       setPomodoroIsActive((prev) => !prev); // Toggle active state
-  }, [pomodoroIsActive, pomodoroTimeLeft, pomodoroMode, pomodoroSessionsCompleted, pomodoroSettings, addXP, toast, switchPomodoroMode, resetTimer]); // Removed activeTaskId, stopTaskTimer
+  }, [pomodoroIsActive, pomodoroTimeLeft, pomodoroMode, pomodoroSessionsCompleted, pomodoroSettings, addOverallXP, toast, switchPomodoroMode, resetTimer]);
 
 
   // --- TASK MANAGEMENT FUNCTIONS ---
@@ -510,31 +494,28 @@ export default function Home() {
                   const isNowComplete = !wasCompleted;
                   // Add/remove XP only when toggling
                   if (isNowComplete) {
-                      addXP(XP_PER_TASK_COMPLETION); // Use stable addXP
-                  } else {
-                      // Optional: Remove XP if uncompleted? Current setup doesn't.
-                      // setXp(xp => Math.max(0, xp - XP_PER_TASK_COMPLETION));
+                      addOverallXP(XP_PER_TASK_COMPLETION, `Complete: ${task.text.substring(0,10)}...`); // Add overall XP
                   }
                   // If completing an active task, stop its timer
                   if (isNowComplete && task.isActive) {
-                     stopTaskTimer(); // Use stable stopTaskTimer
+                     stopTaskTimer();
                   }
                   return { ...task, completed: isNowComplete, isActive: false }; // Ensure isActive is false when completed/uncompleted
               }
               return task;
           })
       );
-  }, [addXP, stopTaskTimer]); // Use stable addXP and stopTaskTimer
+  }, [addOverallXP, stopTaskTimer]);
 
   const deleteTask = useCallback((id: string) => {
       setTasks((prev) => prev.filter((task) => {
            // If deleting the active task, stop the timer
            if (task.id === id && task.id === activeTaskId) { // Compare with activeTaskId state
-               stopTaskTimer(); // Use stable stopTaskTimer
+               stopTaskTimer();
            }
           return task.id !== id
       }));
-  }, [activeTaskId, stopTaskTimer]); // Depend on activeTaskId state and stable stopTaskTimer
+  }, [activeTaskId, stopTaskTimer]);
 
   const editTask = useCallback((id: string, newText: string): boolean => {
       if (!newText.trim()) {
@@ -640,7 +621,7 @@ export default function Home() {
     setXp(storedXp ? parseFloat(storedXp) : 0);
     setLevel(initialLevel);
     setPrevLevel(initialLevel);
-    setXpToNextLevel(calculateXpToNextLevel(initialLevel));
+    setXpToNextLevel(calculateOverallXpToNextLevel(initialLevel));
 
     // --- pomodoro sessions + crystals
     const storedPomodoro = localStorage.getItem(
@@ -873,7 +854,8 @@ export default function Home() {
                 startTaskTimer={startTaskTimer}
                 stopTaskTimer={stopTaskTimer}
                 setTaskEditing={setTaskEditing}
-                activeTaskId={activeTaskId} // Pass activeTaskId
+                activeTaskId={activeTaskId}
+                awardXp={addOverallXP} // Pass addOverallXP as awardXp
               />
             )}
 
@@ -915,4 +897,3 @@ export default function Home() {
     </SidebarProvider>
   );
 }
-

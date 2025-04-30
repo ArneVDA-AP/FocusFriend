@@ -54,6 +54,7 @@ interface StudyTrackerProps {
   stopTaskTimer: () => void;
   setTaskEditing: (id: string, isEditing: boolean) => void;
   activeTaskId: string | null; // To show correct play/pause state based on parent state
+  awardXp: (xp: number) => void;
 }
 
 export default function StudyTracker({
@@ -70,6 +71,7 @@ export default function StudyTracker({
   stopTaskTimer,
   setTaskEditing,
   activeTaskId, // Receive activeTaskId from parent
+  awardXp
 }: StudyTrackerProps) {
   const [newTaskText, setNewTaskText] = useState('');
   const [newTaskPriority, setNewTaskPriority] = useState<TaskPriority>('medium');
@@ -98,6 +100,10 @@ export default function StudyTracker({
     setTaskEditing(id, false); // Inform parent to cancel editing
     setEditingTaskText(''); // Clear local edit input state
   };
+
+    const awardTestXp = () => {
+        awardXp(50); // Award 50 XP
+    };
 
 
   const formatTime = (totalSeconds: number) => {
@@ -166,6 +172,9 @@ export default function StudyTracker({
             <OsrsProgressBar value={levelProgress} label={`XP progress: ${Math.round(levelProgress)}%`} />
         </CardContent>
       </Card>
+      <Button onClick={awardTestXp} className="mb-4">
+                Award Test XP
+            </Button>
 
       {/* Task Management Card */}
       <Card className="osrs-box">

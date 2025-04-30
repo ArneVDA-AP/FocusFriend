@@ -1,10 +1,12 @@
+
 'use client';
 
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { Circle, Clock, Check, Star } from 'lucide-react'; // Using Lucide icons as placeholders
+import { Circle, BookOpenCheck, CheckCircle, BrainCircuit, Timer, LucideIcon } from 'lucide-react'; // Import LucideIcon
 import { cn } from '@/lib/utils';
+import useXP from '@/hooks/use-xp';
 
 interface LevelSystemProps {
   xp: number;
@@ -12,12 +14,15 @@ interface LevelSystemProps {
   xpToNextLevel: number;
 }
 
-// Placeholder data for XP History - In a real app, this would come from state/props
-const xpHistory = [
-    { id: 1, icon: Circle, description: "Completed a Pomodoro", xp: "+20 XP" },
-    { id: 2, icon: Clock, description: "Finished a study session", xp: "+50 XP" },
-    { id: 3, icon: Check, description: "Completed a task", xp: "+30 XP" },
-];
+// Define type for XP History Item from the hook
+interface XPHistoryItem {
+    id: number;
+    icon: LucideIcon; // Use LucideIcon type
+    description: string;
+    xp: number; // Changed to number for calculations if needed, format later
+    timestamp: number;
+    source: string;
+}
 
 // Custom OSRS-style progress bar component adapted for text overlay
 const OsrsProgressBarWithText = ({ value, currentXp, requiredXp, label }: { value: number; currentXp: number, requiredXp: number, label: string }) => (
@@ -43,6 +48,7 @@ const OsrsProgressBarWithText = ({ value, currentXp, requiredXp, label }: { valu
 
 
 export default function LevelSystem({ xp, level, xpToNextLevel }: LevelSystemProps) {
+  const { xpHistory } = useXP(); // Only need xpHistory here
   const levelProgress = xpToNextLevel > 0 ? Math.min((xp / xpToNextLevel) * 100, 100) : 0;
 
   return (
@@ -77,22 +83,26 @@ export default function LevelSystem({ xp, level, xpToNextLevel }: LevelSystemPro
          {/* XP History Section */}
          <div className="space-y-3">
              <h4 className="text-base font-semibold text-foreground">XP History</h4>
-             {/* You can add a Separator if desired: <Separator className="my-2 bg-border/50"/> */}
-             <ul className="space-y-1.5">
-                 {xpHistory.map((event) => {
-                     const Icon = event.icon;
-                     return (
-                         <li key={event.id} className="flex items-center justify-between text-sm">
-                             <div className="flex items-center gap-2">
-                                 {/* Placeholder Icon */}
-                                 <Icon size={14} className="text-muted-foreground/80" strokeWidth={1.5}/>
-                                 <span className="text-foreground/90">{event.description}</span>
-                             </div>
-                             <span className="font-medium text-foreground">{event.xp}</span>
-                         </li>
-                     );
-                 })}
-             </ul>
+             {xpHistory.length === 0 ? (
+                  <p className="text-sm text-muted-foreground italic text-center py-4">No recent XP gains.</p>
+             ) : (
+                 <ul className="space-y-1.5 max-h-40 overflow-y-auto pr-1 osrs-inner-bevel bg-black/10 p-1.5 rounded-sm"> {/* Add scroll */}
+                     {xpHistory.map((event: XPHistoryItem) => {
+                         const Icon = event.icon; // Get the icon component from the event
+                         return (
+                             <li key={event.id} className="flex items-center justify-between text-sm p-1 rounded-sm hover:bg-foreground/5">
+                                <div className="flex items-center gap-2">
+                                     <Icon size={14} className="text-muted-foreground/80" strokeWidth={1.5}/>
+                                     <span className="text-foreground/90 truncate" title={event.description}>{event.description}</span>
+                                 </div>
+                                 <span className="font-medium text-foreground tabular-nums whitespace-nowrap">
+                                     +{event.xp} XP {/* Format XP */}
+                                 </span>
+                             </li>
+                         );
+                     })}
+                 </ul>
+             )}
          </div>
 
       </CardContent>

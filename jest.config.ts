@@ -94,7 +94,8 @@ const config: Config = {
 
   // A map from regular expressions to module names or to arrays of module names that allow to stub out resources with a single module
   moduleNameMapper: {
-        fs: '<rootDir>/__mocks__/fs.js'
+        fs: '<rootDir>/__mocks__/fs.js',
+        '^@/(.*)$': '<rootDir>/src/$1'
     },
 
   // An array of regexp pattern strings that are matched against all source file paths, matched files will skip transformation
