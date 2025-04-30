@@ -1,3 +1,4 @@
+// FILE: src/app/page.tsx
 
 "use client";
 
@@ -834,7 +835,7 @@ export default function Home() {
             <div />
           </div>
 
-          {/* ---------- main grid ---------- */}
+          {/* ---------- main grid (Original Structure) ---------- */}
           <div className="grid grid-cols-1 gap-4 osrs-box p-3 md:p-4">
             {activeSection === "overview" && isMounted && (
               <Overview
