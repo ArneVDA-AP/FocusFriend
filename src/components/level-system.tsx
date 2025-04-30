@@ -4,25 +4,15 @@
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { Circle, BookOpenCheck, CheckCircle, BrainCircuit, Timer, LucideIcon, TestTube } from 'lucide-react'; // Import LucideIcon and TestTube
+import { LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
-// Removed useXP import as xpHistory is now passed as a prop
+import type { XPEvent } from '@/hooks/use-xp'; // Import XPEvent type
 
 interface LevelSystemProps {
   xp: number;
   level: number;
   xpToNextLevel: number;
   xpHistory: XPEvent[]; // Pass xpHistory as a prop
-}
-
-// Define type for XP History Item
-export interface XPEvent { // Export the interface
-    id: number;
-    icon: LucideIcon; // Use LucideIcon type
-    description: string;
-    xp: number; // Changed to number for calculations if needed, format later
-    timestamp: number;
-    source: string;
 }
 
 // Custom OSRS-style progress bar component adapted for text overlay
@@ -49,15 +39,15 @@ const OsrsProgressBarWithText = ({ value, currentXp, requiredXp, label }: { valu
 
 
 export default function LevelSystem({ xp, level, xpToNextLevel, xpHistory }: LevelSystemProps) {
-  // xpHistory is now passed as a prop
   const levelProgress = xpToNextLevel > 0 ? Math.min((xp / xpToNextLevel) * 100, 100) : 0;
 
   return (
-    <Card className="w-full osrs-box"> {/* Apply osrs-box style */}
-      <CardHeader className="pb-4 pt-3 px-4 border-b-2 border-black"> {/* Add bottom border */}
-         <CardTitle className="text-center text-lg font-semibold tracking-wide text-accent">Level Progression</CardTitle>
-      </CardHeader>
-      <CardContent className="p-4 space-y-6"> {/* Add more vertical spacing */}
+    <Card className="w-full osrs-box bg-card text-foreground p-4"> {/* Added padding to main card */}
+       {/* Title */}
+       <h2 className="text-xl font-semibold text-accent text-center mb-6">Level Progression</h2>
+
+       {/* Content Area */}
+       <div className="space-y-6">
 
          {/* Top Section: Level and Progress Bar */}
          <div className="flex items-center gap-4">
@@ -87,13 +77,14 @@ export default function LevelSystem({ xp, level, xpToNextLevel, xpHistory }: Lev
              {xpHistory.length === 0 ? (
                   <p className="text-sm text-muted-foreground italic text-center py-4">No recent XP gains.</p>
              ) : (
-                 <ul className="space-y-1.5 max-h-40 overflow-y-auto pr-1 osrs-inner-bevel bg-black/10 p-1.5 rounded-sm"> {/* Add scroll */}
-                     {xpHistory.map((event: XPEvent) => { // Use XPEvent type here
+                 <ul className="space-y-1.5 max-h-48 overflow-y-auto pr-1 osrs-inner-bevel bg-black/10 p-2 rounded-sm"> {/* Adjusted padding and max-height */}
+                     {xpHistory.map((event: XPEvent) => {
                          const Icon = event.icon; // Get the icon component from the event
                          return (
                              <li key={event.id} className="flex items-center justify-between text-sm p-1 rounded-sm hover:bg-foreground/5">
                                 <div className="flex items-center gap-2">
-                                     <Icon size={14} className="text-muted-foreground/80" strokeWidth={1.5}/>
+                                     {/* Adjusted Icon styling */}
+                                     <Icon size={16} className="text-muted-foreground/80 flex-shrink-0" strokeWidth={1.5}/>
                                      <span className="text-foreground/90 truncate" title={event.description}>{event.description}</span>
                                  </div>
                                  <span className="font-medium text-foreground tabular-nums whitespace-nowrap">
@@ -105,8 +96,7 @@ export default function LevelSystem({ xp, level, xpToNextLevel, xpHistory }: Lev
                  </ul>
              )}
          </div>
-
-      </CardContent>
+       </div>
     </Card>
   );
 }

@@ -8,7 +8,7 @@ type XPIcon = typeof Timer | typeof CheckCircle | typeof BookOpenCheck | typeof 
 export interface XPEvent { // Export the interface
   id: number;
   description: string;
-  xp: number;
+  xp: number; // Changed to number
   timestamp: number;
   icon: LucideIcon; // Use LucideIcon type
   source: string; // Added source property
@@ -37,14 +37,16 @@ const useXP = () => {
        const newEvent: XPEvent = {
          id: Date.now() + Math.random(), // More unique ID
          description: source || 'Unknown XP Source', // Use source or default description
-         xp: xp,
+         xp: Math.round(xp), // Store xp as a rounded number
          timestamp: Date.now(),
          icon: getIconForSource(source), // Get icon based on source
          source: source || 'unknown', // Ensure source is always a string
        };
 
        // Add new event and keep only the last MAX_HISTORY items
-       const updatedHistory = [newEvent, ...prevHistory].slice(0, MAX_HISTORY);
+       // Use filter to prevent exact duplicate entries if they happen very close together
+       const filteredHistory = prevHistory.filter(e => e.id !== newEvent.id);
+       const updatedHistory = [newEvent, ...filteredHistory].slice(0, MAX_HISTORY);
        return updatedHistory;
     });
   }, []); // Empty dependency array because it relies on internal logic and state setter

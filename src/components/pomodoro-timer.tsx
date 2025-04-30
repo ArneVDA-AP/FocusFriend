@@ -1,3 +1,4 @@
+
 'use client';
 
 import React from 'react';
@@ -7,7 +8,7 @@ import { Play, Pause, RotateCw, Coffee, BookOpen, Gem } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { PomodoroSettings } from '@/components/settings'; // Import only the type
 import FocusCrystal from '@/components/focus-crystal';
-import useXP from '@/hooks/use-xp';
+// Removed unused useXP import
 
 export type TimerMode = 'work' | 'shortBreak' | 'longBreak';
 
@@ -37,7 +38,8 @@ export default function PomodoroTimer({
   resetTimer,
 }: PomodoroTimerProps) {
 
-  const { addXpHistory } = useXP();
+  // Removed useXP hook call
+
   const formatTime = (seconds: number): string => {
     const minutes = Math.floor(seconds / 60);
     const remainingSeconds = seconds % 60;
@@ -64,25 +66,7 @@ export default function PomodoroTimer({
 
   const crystalStage = calculateCrystalStage(progress);
 
-  React.useEffect(() => {
-    // Add XP history when the session is completed
-    if (timeLeft === 0) {
-      if (mode === 'work' && crystalStage === 24) {
-        // Add XP for completing a work session
-        addXpHistory({
-          description: 'Completed a focus session',
-          xp: '+25 XP',
-        });
-      } else if (mode === 'shortBreak') {
-        addXpHistory({ description: 'Completed a short break', xp: '+10 XP' });
-      } else if (mode === 'longBreak') {
-        addXpHistory({
-          description: 'Completed a long break',
-          xp: '+15 XP',
-        });
-      }
-    }
-  }, [timeLeft]);
+  // Removed useEffect for logging XP history as it's handled in page.tsx
 
   return (
     <Card className="osrs-box max-w-md mx-auto">
