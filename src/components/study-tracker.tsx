@@ -51,10 +51,10 @@ interface StudyTrackerProps {
   editTask: (id: string, newText: string) => boolean; // Returns success/failure
   updateTaskPriority: (id: string, priority: TaskPriority) => void;
   startTaskTimer: (id: string) => void;
-  stopTaskTimer: () => void;
+  stopTaskTimer: (id: string) => void; // Takes taskId to stop specific timer
   setTaskEditing: (id: string, isEditing: boolean) => void;
   activeTaskId: string | null; // To show correct play/pause state based on parent state
-  awardXp: (xp: number) => void;
+  awardXp: (xp: number, source: string) => void; // Expects source string
 }
 
 export default function StudyTracker({
@@ -102,7 +102,7 @@ export default function StudyTracker({
   };
 
     const awardTestXp = () => {
-        awardXp(50); // Award 50 XP
+        awardXp(50, 'Test XP'); // Award 50 XP with a source description
     };
 
 
@@ -307,7 +307,7 @@ export default function StudyTracker({
                           {/* Timer & Edit Buttons */}
                           {!task.completed && (
                             task.id === activeTaskId ? ( // Check if this task's timer is the active one
-                              <Button variant="outline" size="icon" onClick={stopTaskTimer} aria-label={`Pause timer for task ${task.text}`} className="border-accent/70 text-accent/90 hover:bg-accent/10 hover:text-accent h-6 w-6">
+                              <Button variant="outline" size="icon" onClick={() => stopTaskTimer(task.id)} aria-label={`Pause timer for task ${task.text}`} className="border-accent/70 text-accent/90 hover:bg-accent/10 hover:text-accent h-6 w-6">
                                 <Pause className="h-3.5 w-3.5" strokeWidth={2.5} />
                               </Button>
                             ) : (

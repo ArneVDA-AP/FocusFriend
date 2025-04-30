@@ -1,6 +1,6 @@
 
 import { useState, useCallback } from 'react';
-import { Timer, CheckCircle, BookOpenCheck, BrainCircuit } from 'lucide-react'; // Added icons
+import { Timer, CheckCircle, BookOpenCheck, BrainCircuit, LucideIcon } from 'lucide-react'; // Added LucideIcon
 
 // Define type for XP source icon
 type XPIcon = typeof Timer | typeof CheckCircle | typeof BookOpenCheck | typeof BrainCircuit;
@@ -10,7 +10,7 @@ interface XPEvent {
   description: string;
   xp: number;
   timestamp: number;
-  icon: XPIcon; // Add icon property
+  icon: LucideIcon; // Use LucideIcon type
   source: string; // Added source property
 }
 
@@ -21,6 +21,9 @@ const useXP = () => {
 
   // Map source strings to icons
   const getIconForSource = (source: string): XPIcon => {
+     // Add check for undefined or null source
+     if (!source) return BrainCircuit; // Return default if source is invalid
+
      if (source.startsWith('Pomodoro')) return Timer;
      if (source.startsWith('Task:')) return BookOpenCheck;
      if (source.startsWith('Complete:')) return CheckCircle;
@@ -32,11 +35,11 @@ const useXP = () => {
     setXPHistory((prevHistory) => {
        const newEvent: XPEvent = {
          id: Date.now() + Math.random(), // More unique ID
-         description: source, // Use the source directly as description for now
+         description: source || 'Unknown XP Source', // Use source or default description
          xp: xp,
          timestamp: Date.now(),
          icon: getIconForSource(source), // Get icon based on source
-         source: source,
+         source: source || 'unknown', // Ensure source is always a string
        };
 
        // Add new event and keep only the last MAX_HISTORY items
