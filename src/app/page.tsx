@@ -368,24 +368,26 @@ export default function Home() {
 
   // --- TASK TIMER HELPERS ---
   // Define stopTaskTimer first as it's used by startTaskTimer and others
-  const stopTaskTimer = useCallback(() => {
-      if (taskTimerIntervalRef.current) {
+  const stopTaskTimer = useCallback((taskId: string) => {
+      if (taskTimerIntervalRef.current && activeTaskId === taskId) { // Only clear if it's the timer for the specified task
           clearInterval(taskTimerIntervalRef.current);
           taskTimerIntervalRef.current = null;
+          setActiveTaskId(null); // Clear the active task ID
+          // Update tasks state immutably
+          setTasks((prevTasks) => prevTasks.map((t) => t.id === taskId ? { ...t, isActive: false } : t));
       }
-      setActiveTaskId(null); // Clear the active task ID
-      // Update tasks state immutably
-      setTasks((prevTasks) => prevTasks.map((t) => ({ ...t, isActive: false })));
-  }, []); // No external dependencies needed here
+  }, [activeTaskId]); // Dependency on activeTaskId
 
   // Now define startTaskTimer
   const startTaskTimer = useCallback(
     (taskId: string) => {
-      // Stop any *other* currently running task timer
-      if (activeTaskId && activeTaskId !== taskId) {
-          stopTaskTimer(); // Stop the previous task timer
-      }
+      // Don't allow starting a new timer if another task timer is already active
+      // if (activeTaskId && activeTaskId !== taskId) {
+      //     toast({ title: "Timer Active", description: `Another task timer is already running.` });
+      //     return;
+      // }
 
+       // Allow starting if pomodoro timer is active
       setActiveTaskId(taskId); // Set the active task ID
       // Update tasks state immutably
       setTasks((prevTasks) => prevTasks.map((t) => ({ ...t, isActive: t.id === taskId })));
@@ -404,7 +406,7 @@ export default function Home() {
         );
       }, 1000);
     },
-    [addOverallXP, stopTaskTimer, activeTaskId]
+    [addOverallXP, toast, activeTaskId] // Removed stopTaskTimer dependency
   );
 
    // --- POMODORO MAIN LOGIC ---
@@ -498,7 +500,7 @@ export default function Home() {
                   }
                   // If completing an active task, stop its timer
                   if (isNowComplete && task.isActive) {
-                     stopTaskTimer();
+                     stopTaskTimer(id); // Pass the task ID to stop
                   }
                   return { ...task, completed: isNowComplete, isActive: false }; // Ensure isActive is false when completed/uncompleted
               }
@@ -511,7 +513,7 @@ export default function Home() {
       setTasks((prev) => prev.filter((task) => {
            // If deleting the active task, stop the timer
            if (task.id === id && task.id === activeTaskId) { // Compare with activeTaskId state
-               stopTaskTimer();
+               stopTaskTimer(id); // Pass the task ID to stop
            }
           return task.id !== id
       }));
@@ -875,7 +877,7 @@ export default function Home() {
             )}
 
             {activeSection === "levels" && isMounted && (
-              <LevelSystem xp={xp} level={level} xpToNextLevel={xpToNextLevel} />
+              <LevelSystem xp={xp} level={level} xpToNextLevel={xpToNextLevel} xpHistory={xpHistory} />
             )}
 
             {activeSection === "achievements" && isMounted && (

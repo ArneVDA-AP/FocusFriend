@@ -4,18 +4,19 @@
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { Circle, BookOpenCheck, CheckCircle, BrainCircuit, Timer, LucideIcon } from 'lucide-react'; // Import LucideIcon
+import { Circle, BookOpenCheck, CheckCircle, BrainCircuit, Timer, LucideIcon, TestTube } from 'lucide-react'; // Import LucideIcon and TestTube
 import { cn } from '@/lib/utils';
-import useXP from '@/hooks/use-xp';
+// Removed useXP import as xpHistory is now passed as a prop
 
 interface LevelSystemProps {
   xp: number;
   level: number;
   xpToNextLevel: number;
+  xpHistory: XPEvent[]; // Pass xpHistory as a prop
 }
 
-// Define type for XP History Item from the hook
-interface XPHistoryItem {
+// Define type for XP History Item
+export interface XPEvent { // Export the interface
     id: number;
     icon: LucideIcon; // Use LucideIcon type
     description: string;
@@ -47,8 +48,8 @@ const OsrsProgressBarWithText = ({ value, currentXp, requiredXp, label }: { valu
 );
 
 
-export default function LevelSystem({ xp, level, xpToNextLevel }: LevelSystemProps) {
-  const { xpHistory } = useXP(); // Only need xpHistory here
+export default function LevelSystem({ xp, level, xpToNextLevel, xpHistory }: LevelSystemProps) {
+  // xpHistory is now passed as a prop
   const levelProgress = xpToNextLevel > 0 ? Math.min((xp / xpToNextLevel) * 100, 100) : 0;
 
   return (
@@ -87,7 +88,7 @@ export default function LevelSystem({ xp, level, xpToNextLevel }: LevelSystemPro
                   <p className="text-sm text-muted-foreground italic text-center py-4">No recent XP gains.</p>
              ) : (
                  <ul className="space-y-1.5 max-h-40 overflow-y-auto pr-1 osrs-inner-bevel bg-black/10 p-1.5 rounded-sm"> {/* Add scroll */}
-                     {xpHistory.map((event: XPHistoryItem) => {
+                     {xpHistory.map((event: XPEvent) => { // Use XPEvent type here
                          const Icon = event.icon; // Get the icon component from the event
                          return (
                              <li key={event.id} className="flex items-center justify-between text-sm p-1 rounded-sm hover:bg-foreground/5">

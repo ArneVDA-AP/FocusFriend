@@ -1,11 +1,11 @@
 
 import { useState, useCallback } from 'react';
-import { Timer, CheckCircle, BookOpenCheck, BrainCircuit, LucideIcon } from 'lucide-react'; // Added LucideIcon
+import { Timer, CheckCircle, BookOpenCheck, BrainCircuit, LucideIcon, TestTube } from 'lucide-react'; // Added LucideIcon and TestTube
 
 // Define type for XP source icon
-type XPIcon = typeof Timer | typeof CheckCircle | typeof BookOpenCheck | typeof BrainCircuit;
+type XPIcon = typeof Timer | typeof CheckCircle | typeof BookOpenCheck | typeof BrainCircuit | typeof TestTube; // Added TestTube
 
-interface XPEvent {
+export interface XPEvent { // Export the interface
   id: number;
   description: string;
   xp: number;
@@ -27,6 +27,7 @@ const useXP = () => {
      if (source.startsWith('Pomodoro')) return Timer;
      if (source.startsWith('Task:')) return BookOpenCheck;
      if (source.startsWith('Complete:')) return CheckCircle;
+     if (source === 'Test XP') return TestTube; // Handle Test XP source
      // Add more specific checks if needed
      return BrainCircuit; // Default icon
   };
