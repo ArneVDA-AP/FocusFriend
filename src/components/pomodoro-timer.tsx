@@ -1,3 +1,4 @@
+// FILE: src/components/pomodoro-timer.tsx
 
 'use client';
 
@@ -8,7 +9,6 @@ import { Play, Pause, RotateCw, Coffee, BookOpen, Gem } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { PomodoroSettings } from '@/components/settings'; // Import only the type
 import FocusCrystal from '@/components/focus-crystal';
-// Removed unused useXP import
 
 export type TimerMode = 'work' | 'shortBreak' | 'longBreak';
 
@@ -38,8 +38,6 @@ export default function PomodoroTimer({
   resetTimer,
 }: PomodoroTimerProps) {
 
-  // Removed useXP hook call
-
   const formatTime = (seconds: number): string => {
     const minutes = Math.floor(seconds / 60);
     const remainingSeconds = seconds % 60;
@@ -58,7 +56,7 @@ export default function PomodoroTimer({
      // Crystal only grows during active work sessions
     if (mode !== 'work' || !isActive) {
         // If completed, show max stage. If paused/withered, show stage 0
-        return (progress === 100 && !isActive && !crystalDies) ? 24 : 0;
+        return (progress >= 100 && !isActive && !crystalDies) ? 24 : 0;
     }
     const stage = Math.floor(currentProgress / (100 / 24));
     return Math.min(stage, 24);
@@ -66,10 +64,9 @@ export default function PomodoroTimer({
 
   const crystalStage = calculateCrystalStage(progress);
 
-  // Removed useEffect for logging XP history as it's handled in page.tsx
-
   return (
-    <Card className="osrs-box max-w-md mx-auto">
+    // RE-ADDED mx-auto and changed max-w-md to max-w-lg
+    <Card className="osrs-box max-w-lg mx-auto">
       <CardHeader className="pb-3 text-center">
         <CardTitle className="text-lg font-semibold">Pomodoro Timer</CardTitle>
         <CardDescription className="text-xs">Grow Focus Crystals by completing work sessions.</CardDescription>

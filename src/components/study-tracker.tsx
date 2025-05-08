@@ -1,4 +1,4 @@
-
+// FILE: src/components/study-tracker.tsx
 'use client';
 
 import React, { useState } from 'react';
@@ -7,7 +7,6 @@ import { Button, buttonVariants } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Trash2, Plus, Play, Pause, Edit2, Save, X, Clock, Flag } from 'lucide-react';
-// Removed Progress import as the custom OSRS bar is used
 import {
   AlertDialog,
   AlertDialogAction,
@@ -27,6 +26,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from '@/lib/utils';
+import { useToast } from '@/hooks/use-toast'; // Import useToast if needed for editTask error
 
 export type TaskPriority = 'low' | 'medium' | 'high';
 
@@ -34,10 +34,10 @@ export interface Task {
   id: string;
   text: string;
   completed: boolean;
-  studyTime: number; // in seconds
-  isActive: boolean; // Controlled by parent
+  studyTime: number; // Stores the *total accumulated* time
+  isActive: boolean; // Controlled by parent UI state
   priority: TaskPriority;
-  isEditing: boolean; // UI state managed locally or by parent
+  isEditing: boolean;
 }
 
 interface StudyTrackerProps {
@@ -48,14 +48,27 @@ interface StudyTrackerProps {
   addTask: (text: string, priority: TaskPriority) => void;
   toggleTaskCompletion: (id: string) => void;
   deleteTask: (id: string) => void;
-  editTask: (id: string, newText: string) => boolean; // Returns success/failure
+  editTask: (id: string, newText: string) => boolean;
   updateTaskPriority: (id: string, priority: TaskPriority) => void;
   startTaskTimer: (id: string) => void;
-  stopTaskTimer: (id: string) => void; // Takes taskId to stop specific timer
+  stopTaskTimer: (id: string) => void;
   setTaskEditing: (id: string, isEditing: boolean) => void;
-  activeTaskId: string | null; // To show correct play/pause state based on parent state
-  awardXp: (xp: number, source: string) => void; // Expects source string
+  activeTaskId: string | null;
+  awardXp: (xp: number, source: string) => void; // For test button
+  activeTaskDisplayTime: number; // Current time for the active task display
 }
+
+// --- Helper function (keep outside component) ---
+const formatTime = (totalSeconds: number): string => {
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+    const parts: string[] = [];
+    if (hours > 0) parts.push(`${hours}h`);
+    if (minutes > 0) parts.push(`${minutes}m`);
+    if (seconds > 0 || parts.length === 0) parts.push(`${seconds}s`);
+    return parts.join(' ');
+};
 
 export default function StudyTracker({
   tasks,
@@ -70,8 +83,9 @@ export default function StudyTracker({
   startTaskTimer,
   stopTaskTimer,
   setTaskEditing,
-  activeTaskId, // Receive activeTaskId from parent
-  awardXp
+  activeTaskId,
+  awardXp,
+  activeTaskDisplayTime // Destructure new prop
 }: StudyTrackerProps) {
   const [newTaskText, setNewTaskText] = useState('');
   const [newTaskPriority, setNewTaskPriority] = useState<TaskPriority>('medium');
@@ -79,42 +93,30 @@ export default function StudyTracker({
 
   const handleAddTask = () => {
     addTask(newTaskText, newTaskPriority);
-    setNewTaskText(''); // Reset local input state
-    setNewTaskPriority('medium'); // Reset local priority state
+    setNewTaskText('');
+    setNewTaskPriority('medium');
   };
 
   const handleStartEditing = (task: Task) => {
-    setEditingTaskText(task.text); // Populate local edit input state
-    setTaskEditing(task.id, true); // Inform parent to set editing state
+    setEditingTaskText(task.text);
+    setTaskEditing(task.id, true);
   };
 
   const handleSaveTask = (id: string) => {
-      const success = editTask(id, editingTaskText); // Call parent's edit function
-      if (success) {
-          setEditingTaskText(''); // Clear local edit input state on success
-      }
+      const success = editTask(id, editingTaskText);
       // Parent's editTask function handles setting isEditing back to false
+      if (success) {
+          setEditingTaskText(''); // Clear local state only on success
+      }
   };
 
   const handleCancelEditing = (id: string) => {
-    setTaskEditing(id, false); // Inform parent to cancel editing
-    setEditingTaskText(''); // Clear local edit input state
+    setTaskEditing(id, false);
+    setEditingTaskText('');
   };
 
-    const awardTestXp = () => {
-        awardXp(50, 'Test XP'); // Award 50 XP with a source description
-    };
-
-
-  const formatTime = (totalSeconds: number) => {
-    const hours = Math.floor(totalSeconds / 3600);
-    const minutes = Math.floor((totalSeconds % 3600) / 60);
-    const seconds = totalSeconds % 60;
-    const parts: string[] = [];
-    if (hours > 0) parts.push(`${hours}h`);
-    if (minutes > 0) parts.push(`${minutes}m`);
-    if (seconds > 0 || parts.length === 0) parts.push(`${seconds}s`);
-    return parts.join(' ');
+  const awardTestXp = () => {
+      awardXp(50, 'Test XP'); // Award 50 XP with a source description
   };
 
   const getPriorityColor = (priority: TaskPriority): string => {
@@ -136,11 +138,9 @@ export default function StudyTracker({
      if (priorityOrder[a.priority] !== priorityOrder[b.priority]) {
        return priorityOrder[b.priority] - priorityOrder[a.priority];
      }
-     // Keep original insertion order for tasks with same completion and priority (older tasks lower)
      return parseInt(a.id, 10) - parseInt(b.id, 10);
    });
 
-   // OSRS Progress Bar Component (moved inline for simplicity, could be separate)
    const OsrsProgressBar = ({ value, label }: { value: number; label: string }) => (
         <div className="w-full h-2 bg-black/40 rounded-full overflow-hidden border border-black/50 shadow-[inset_0_1px_1px_rgba(0,0,0,0.5)]">
             <div
@@ -172,9 +172,10 @@ export default function StudyTracker({
             <OsrsProgressBar value={levelProgress} label={`XP progress: ${Math.round(levelProgress)}%`} />
         </CardContent>
       </Card>
+      {/* Test XP Button */}
       <Button onClick={awardTestXp} className="mb-4">
-                Award Test XP
-            </Button>
+          Award Test XP
+      </Button>
 
       {/* Task Management Card */}
       <Card className="osrs-box">
@@ -190,7 +191,7 @@ export default function StudyTracker({
               value={newTaskText}
               onChange={(e) => setNewTaskText(e.target.value)}
               placeholder="Enter a new study task..."
-              onKeyPress={(e) => e.key === 'Enter' && newTaskText.trim() && handleAddTask()} // Ensure text is not empty on Enter
+              onKeyPress={(e) => e.key === 'Enter' && newTaskText.trim() && handleAddTask()}
               aria-label="New Task Input"
               className="flex-grow osrs-inner-bevel"
               disabled={!!activeTaskId} // Disable input if a task timer is running
@@ -222,7 +223,7 @@ export default function StudyTracker({
                   "flex items-center justify-between p-1.5 rounded-sm border-l-4 transition-colors duration-150 bg-card/80 hover:bg-card",
                   getPriorityColor(task.priority),
                   task.completed ? 'border-muted/60 opacity-60 hover:opacity-80' : 'border-l',
-                  task.id === activeTaskId ? 'ring-1 ring-inset ring-accent/80 shadow-inner shadow-accent/10' : '' // Use activeTaskId for ring
+                  task.id === activeTaskId ? 'ring-1 ring-inset ring-accent/80 shadow-inner shadow-accent/10' : ''
                 )}
               >
                  <div className="flex items-center gap-2 flex-1 min-w-0">
@@ -231,7 +232,7 @@ export default function StudyTracker({
                     checked={task.completed}
                     onCheckedChange={() => toggleTaskCompletion(task.id)}
                     aria-label={`Mark task ${task.text} as ${task.completed ? 'incomplete' : 'complete'}`}
-                    disabled={task.id === activeTaskId} // Disable checkbox if timer is active for this task
+                    disabled={task.id === activeTaskId}
                     className={cn(
                         "border-primary/50 data-[state=checked]:bg-primary data-[state=checked]:border-primary/80 data-[state=checked]:text-primary-foreground mt-0.5",
                         task.completed && "border-muted/80 data-[state=checked]:bg-muted data-[state=checked]:border-muted/80 data-[state=checked]:text-muted-foreground/60"
@@ -240,10 +241,10 @@ export default function StudyTracker({
                    {task.isEditing ? (
                         <Input
                            type="text"
-                           value={editingTaskText} // Use local state for input value
+                           value={editingTaskText}
                            onChange={(e) => setEditingTaskText(e.target.value)}
                            onKeyPress={(e) => e.key === 'Enter' && handleSaveTask(task.id)}
-                           onBlur={() => handleCancelEditing(task.id)} // Cancel on blur
+                           onBlur={() => handleCancelEditing(task.id)}
                            autoFocus
                            className={cn("h-7 flex-1 osrs-inner-bevel text-sm px-1.5", task.completed && "line-through text-muted-foreground/70")}
                          />
@@ -253,10 +254,10 @@ export default function StudyTracker({
                         className={cn(
                           "flex-1 truncate cursor-pointer text-sm font-medium",
                            task.completed ? 'line-through text-muted-foreground/70' : 'text-foreground hover:text-foreground/90',
-                            task.id === activeTaskId ? 'cursor-default' : 'cursor-pointer' // Change cursor if active
+                            task.id === activeTaskId ? 'cursor-default' : 'cursor-pointer'
                          )}
                         title={task.text}
-                        onDoubleClick={() => !task.completed && !(task.id === activeTaskId) && handleStartEditing(task)} // Allow editing only if not completed and not active
+                        onDoubleClick={() => !task.completed && !(task.id === activeTaskId) && handleStartEditing(task)}
                       >
                         {task.text}
                       </label>
@@ -296,17 +297,22 @@ export default function StudyTracker({
                                </Select>
                            </div>
 
-                          {/* Study Time */}
+                          {/* Study Time Display */}
                           <span className={cn(
                               "text-xs text-muted-foreground min-w-[50px] text-right flex items-center gap-0.5 tabular-nums mr-1",
                               task.completed && "opacity-60"
                           )}>
-                            <Clock size={10} strokeWidth={1.5} /> {formatTime(task.studyTime)}
+                            <Clock size={10} strokeWidth={1.5} />
+                            {/* --- USE activeTaskDisplayTime if this task is active --- */}
+                            {task.id === activeTaskId
+                                ? formatTime(activeTaskDisplayTime)
+                                : formatTime(task.studyTime) // Otherwise show stored time
+                            }
                           </span>
 
                           {/* Timer & Edit Buttons */}
                           {!task.completed && (
-                            task.id === activeTaskId ? ( // Check if this task's timer is the active one
+                            task.id === activeTaskId ? (
                               <Button variant="outline" size="icon" onClick={() => stopTaskTimer(task.id)} aria-label={`Pause timer for task ${task.text}`} className="border-accent/70 text-accent/90 hover:bg-accent/10 hover:text-accent h-6 w-6">
                                 <Pause className="h-3.5 w-3.5" strokeWidth={2.5} />
                               </Button>
